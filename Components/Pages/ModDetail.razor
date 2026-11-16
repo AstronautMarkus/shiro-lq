@@ -4,35 +4,52 @@
 
 @if (mod is not null)
 {
+    var ext = Path.GetExtension(mod.FileName).TrimStart('.').ToUpperInvariant();
+
     <PageTitle>ShiroLQ - @mod.Name</PageTitle>
 
-    <section class="box">
+    <div class="page-head">
+        <p class="crumbs"><a href="">Inicio</a> / <a href="mods">Mods y descargas</a> / @mod.Name</p>
         <h1>@mod.Name</h1>
+        <p class="eyebrow">@mod.Type.Label()</p>
+    </div>
+
+    <div class="thumb shot">
+        <span class="tag">Captura dentro del juego</span>
+        <img src="images/@mod.Thumbnail" alt="Miniatura de @mod.Name" />
+    </div>
+
+    <section class="box">
+        <h2>Descargar archivo</h2>
         <div class="box-body">
-            <p><a href="mods">&laquo; Volver a Mods</a></p>
-            <div class="mod-detail">
-                <div class="thumb"><img src="images/@mod.Thumbnail" alt="Miniatura de @mod.Name" /></div>
-                <div class="mod-info">
-                    <table class="specs">
-                        <tr><th scope="row">Tipo</th><td>@mod.Type.Label()</td></tr>
-                    </table>
-                    <p>@mod.Description</p>
-                    @* download attribute keeps Blazor's enhanced navigation from fetching the file twice *@
-                    <a class="btn btn-lg" href="mods/@mod.Id/download" download>Descargar</a>
-                </div>
-            </div>
-            @if (mod.Images.Count > 0)
-            {
-                <h2>Fotos</h2>
+            @* download attribute keeps Blazor's enhanced navigation from fetching the file twice *@
+            <a class="btn btn-lg" href="mods/@mod.Id/download" download>&darr; Descargar @mod.Name</a>
+            <p class="meta">@mod.Type.Label()@(ext == "" ? "" : " · " + ext)</p>
+            <p class="muted">Lee la descripción antes de instalar. Guarda una copia de los archivos originales.</p>
+        </div>
+    </section>
+
+    <section class="box">
+        <h2>Acerca del mod</h2>
+        <div class="box-body">
+            <p class="description">@mod.Description</p>
+        </div>
+    </section>
+
+    @if (mod.Images.Count > 0)
+    {
+        <section class="box">
+            <h2>Fotos</h2>
+            <div class="box-body">
                 <div class="grid">
                     @for (var i = 0; i < mod.Images.Count; i++)
                     {
                         <a class="thumb" href="images/@mod.Images[i]" target="_blank"><img src="images/@mod.Images[i]" alt="Foto @(i + 1) de @mod.Name" /></a>
                     }
                 </div>
-            }
-        </div>
-    </section>
+            </div>
+        </section>
+    }
 }
 
 @code {

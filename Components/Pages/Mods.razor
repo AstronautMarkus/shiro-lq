@@ -4,30 +4,31 @@
 
 <PageTitle>ShiroLQ - Mods</PageTitle>
 
-<section class="box">
-    <h1>Mods</h1>
-    <div class="box-body">
-        <p>Descarga los mods del canal. Haz clic en uno para ver los detalles.</p>
-        @if (Env.IsDevelopment())
-        {
-            <p><a class="btn" href="mods/upload">Subir mod</a></p>
-        }
-        @if (mods.Count == 0)
-        {
-            <p class="muted">Aún no hay mods.</p>
-        }
-        <div class="grid">
-            @foreach (var mod in mods)
-            {
-                <a class="mod-card" href="mods/@mod.Id">
-                    <div class="thumb"><img src="images/@mod.Thumbnail" alt="" /></div>
-                    <p>@mod.Name</p>
-                    <span class="muted">@mod.Type.Label()</span>
-                </a>
-            }
+<div class="page-head">
+    <p class="crumbs"><a href="">Inicio</a> / Mods y descargas</p>
+    <h1>El arsenal de descargas</h1>
+    <p>Los skins, mapas y objetos que ves en mis videos. Todo en un solo lugar.</p>
+</div>
+
+@if (Env.IsDevelopment())
+{
+    <p><a class="btn" href="mods/upload">+ Subir mod</a></p>
+}
+
+<p class="meta">@mods.Count @(mods.Count == 1 ? "archivo" : "archivos")</p>
+
+@foreach (var mod in mods)
+{
+    <article class="card mod-row">
+        <a class="thumb" href="mods/@mod.Id"><img src="images/@mod.Thumbnail" alt="" /></a>
+        <div>
+            <p class="eyebrow">@mod.Type.Label()</p>
+            <h2 class="card-title"><a href="mods/@mod.Id">@mod.Name</a></h2>
+            <p class="clamp">@mod.Description</p>
+            <a class="btn" href="mods/@mod.Id">Ver mod &rsaquo;</a>
         </div>
-    </div>
-</section>
+    </article>
+}
 
 @code {
     private List<Mod> mods = [];

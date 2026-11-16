@@ -1,34 +1,67 @@
 ﻿@page "/"
 @inject ModStore Store
-@inject IWebHostEnvironment Env
 
 <PageTitle>ShiroLQ - Inicio</PageTitle>
 
-<section class="box">
-    <h1>¡Bienvenido a ShiroLQ!</h1>
-    <div class="box-body">
-        <p>Aquí encontrarás todos los videos Loquendo del canal y los mods para descargar. Pasa, ponte cómodo y no olvides suscribirte.</p>
-    </div>
-</section>
+<div class="page-head">
+    <h1>Bienvenido a mi pequeño caos</h1>
+    <p>Videos Loquendo, GTA y una buena dosis de estilo.</p>
+</div>
 
 <section class="box">
-    <h2>Último video</h2>
+    <h2>&#9654; Último video / Estreno en el canal</h2>
     <div class="box-body">
-        @* Para mostrar un video real, pega aquí el <iframe> de YouTube *@
+        @* To show a real video, paste the YouTube <iframe> here *@
         <div class="video"></div>
-        <p><b>Título del último video</b><br /><span class="muted">Subido el 16/11/2026</span></p>
+        <p class="card-title">Título del último video</p>
+        <p class="meta">Subido el 16/11/2026</p>
     </div>
 </section>
 
 <section class="box">
-    <h2>Mods recientes</h2>
+    <h2>Más videos del canal <a href="videos">Ver videoteca &rsaquo;</a></h2>
     <div class="box-body">
-        <ul class="links">
-            @foreach (var mod in mods)
+        <div class="grid">
+            @for (var i = 1; i <= 3; i++)
             {
-                <li><a href="mods/@mod.Id">@mod.Name</a> <span class="muted">@mod.Description</span></li>
+                <div>
+                    <div class="video"></div>
+                    <p class="card-title">Video Loquendo #@i</p>
+                </div>
             }
-        </ul>
+        </div>
+    </div>
+</section>
+
+<section class="box">
+    <h2>Mods recién salidos del horno <a href="mods">Todas las descargas &rsaquo;</a></h2>
+    <div class="box-body">
+        @if (mods.Count == 0)
+        {
+            <p class="muted">Aún no hay mods.</p>
+        }
+        <div class="grid grid-2">
+            @foreach (var mod in mods.Take(4))
+            {
+                <div class="mod-mini">
+                    <a class="thumb" href="mods/@mod.Id"><img src="images/@mod.Thumbnail" alt="" /></a>
+                    <div>
+                        <p class="eyebrow">@mod.Type.Label()</p>
+                        <a class="card-title" href="mods/@mod.Id">@mod.Name</a>
+                    </div>
+                    @* download attribute keeps Blazor's enhanced navigation from fetching the file twice *@
+                    <a class="btn btn-block" href="mods/@mod.Id/download" download>&darr; Descargar</a>
+                </div>
+            }
+        </div>
+    </div>
+</section>
+
+<section class="box">
+    <h2>Detrás de la voz</h2>
+    <div class="box-body">
+        <p class="display">Aquí el Loquendo sigue vivo.</p>
+        <p>Aquí encontrarás todos los videos Loquendo del canal y los mods para descargar. Pasa, ponte cómodo y no olvides suscribirte.</p>
     </div>
 </section>
 

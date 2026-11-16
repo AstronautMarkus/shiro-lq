@@ -2,17 +2,21 @@
 
 <PageTitle>ShiroLQ - Videos</PageTitle>
 
-<section class="box">
-    <h1>Videos</h1>
-    <div class="box-body">
-        <div class="grid">
-            @for (var i = 1; i <= 6; i++)
-            {
-                <div>
-                    <div class="video"></div>
-                    <p>Video Loquendo #@i</p>
-                </div>
-            }
-        </div>
-    </div>
-</section>
+<div class="page-head">
+    <p class="crumbs"><a href="">Inicio</a> / Videos</p>
+    <h1>La videoteca</h1>
+    <p>Historias, caos y voces que conoces demasiado bien.</p>
+</div>
+
+<div class="grid grid-2">
+    @for (var i = 1; i <= 6; i++)
+    {
+        <article class="card">
+            <div class="video"></div>
+            <div class="card-body">
+                <p class="eyebrow">Loquendo</p>
+                <p class="card-title">Video Loquendo #@i</p>
+            </div>
+        </article>
+    }
+</div>

@@ -1,15 +1,21 @@
 ﻿@inherits LayoutComponentBase
 
 <div class="site">
-    <header class="header">
-        <a class="logo" href="">Shiro<span>LQ</span></a>
-        <p class="tagline">Videos Loquendo &middot; Mods &middot; Descargas</p>
+    <div class="topbar">Loquendo &middot; GTA &middot; Modding</div>
+
+    <header class="hero">
+        <a class="logo" href="">Shiro <span>LQ</span></a>
+        <p class="hero-tagline">Videos Loquendo &middot; Mods &middot; Descargas</p>
+        <p class="hero-sub">Videos, historias y mods desde el otro lado.</p>
+        <span class="hero-badge">&#10022; Sitio oficial del canal</span>
     </header>
 
     <NavMenu />
 
     <div class="ticker">
-        <p>&#9733; Bienvenidos a ShiroLQ &#9733; Videos Loquendo nuevos cada semana &#9733; Descarga los últimos mods en la sección Mods &#9733;</p>
+        <b>Última hora</b>
+        <p>Videos Loquendo nuevos cada semana &middot; Descarga los últimos mods en la sección Mods</p>
+        <span>Bienvenido, visitante</span>
     </div>
 
     <div class="columns">
@@ -19,20 +25,21 @@
 
         <aside class="sidebar">
             <section class="box">
-                <h2>El Canal</h2>
+                <h2>El rincón de Shiro</h2>
                 <div class="box-body">
-                    <p>Videos Loquendo, parodias y más. ¡Suscríbete para no perderte nada!</p>
-                    @* TODO: reemplazar # por la URL del canal *@
-                    <a class="btn" href="#" target="_blank" rel="noopener">&#9654; Suscribirse</a>
+                    <p class="display">Bienvenido al canal.</p>
+                    <p class="accent">Videos Loquendo, parodias y más.</p>
+                    <p>¡Suscríbete para no perderte nada!</p>
+                    <a class="btn btn-block" href="@YouTubeUrl" target="_blank" rel="noopener">&#9654; Suscribirme al canal</a>
                 </div>
             </section>
 
             <section class="box">
-                <h2>Secciones</h2>
+                <h2>Explora el sitio</h2>
                 <div class="box-body">
                     <ul class="links">
-                        <li><a href="videos">Todos los videos</a></li>
-                        <li><a href="mods">Descargar mods</a></li>
+                        <li><a href="videos">Videos Loquendo</a></li>
+                        <li><a href="mods">Mods y skins</a></li>
                     </ul>
                 </div>
             </section>
@@ -40,13 +47,14 @@
     </div>
 
     <footer class="footer">
-        <div class="badges" aria-hidden="true">
-            <span class="badge">POWERED BY<br />BLAZOR</span>
-            <span class="badge">LOQUENDO<br />TTS</span>
-            <span class="badge">1024 x 768<br />RESOLUTION</span>
+        <div>
+            <p class="footer-logo">Shiro LQ</p>
+            <p>Videos con voz. Mods con estilo.</p>
         </div>
-        <p>&copy; @DateTime.Now.Year ShiroLQ &middot; Todos los derechos reservados</p>
-        <p>Mejor visto a 1024x768 con Internet Explorer 7 o Firefox 3</p>
+        <div>
+            <p><a href="">Inicio</a> / <a href="videos">Videos</a> / <a href="mods">Mods</a></p>
+            <p>&copy; @DateTime.Now.Year Shiro LQ &middot; Hecho para verse a 1024 &times; 768</p>
+        </div>
     </footer>
 </div>
 
@@ -55,3 +63,8 @@
     <a href="." class="reload">Recargar</a>
     <span class="dismiss">🗙</span>
 </div>
+
+@code {
+    // TODO: replace # with the channel URL (used here and in NavMenu).
+    public const string YouTubeUrl = "#";
+}
