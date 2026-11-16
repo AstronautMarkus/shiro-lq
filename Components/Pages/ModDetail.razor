@@ -1,0 +1,38 @@
+@page "/mods/{Slug}"
+@inject NavigationManager Nav
+
+@if (mod is not null)
+{
+    <PageTitle>ShiroLQ - @mod.Nombre</PageTitle>
+
+    <section class="box">
+        <h1>@mod.Nombre</h1>
+        <div class="box-body">
+            <p><a href="mods">&laquo; Volver a Mods</a></p>
+            <div class="mod-detail">
+                <div class="thumb">@if (mod.Imagen is not null) {<img src="@mod.Imagen" alt="Captura de @mod.Nombre" />}</div>
+                <div class="mod-info">
+                    <table class="specs">
+                        <tr><th scope="row">Juego</th><td>@mod.Juego</td></tr>
+                        <tr><th scope="row">Versión</th><td>@mod.Version</td></tr>
+                    </table>
+                    <p>@mod.Descripcion</p>
+                    <a class="btn btn-lg" href="@mod.Url">Descargar</a>
+                    <p class="muted">Lee el archivo LEEME.txt antes de instalar.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+}
+
+@code {
+    [Parameter] public string Slug { get; set; } = "";
+
+    private Mods.Mod? mod;
+
+    protected override void OnParametersSet()
+    {
+        mod = Mods.All.FirstOrDefault(m => m.Slug == Slug);
+        if (mod is null) Nav.NotFound();
+    }
+}

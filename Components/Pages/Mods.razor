@@ -5,31 +5,27 @@
 <section class="box">
     <h1>Mods</h1>
     <div class="box-body">
-        <p>Descarga los mods del canal. Lee el archivo LEEME.txt antes de instalar.</p>
-        <table>
-            <thead>
-                <tr><th>Nombre</th><th>Juego</th><th>Versión</th><th></th></tr>
-            </thead>
-            <tbody>
-                @foreach (var mod in mods)
-                {
-                    <tr>
-                        <td>@mod.Nombre</td>
-                        <td>@mod.Juego</td>
-                        <td>@mod.Version</td>
-                        <td><a class="btn" href="@mod.Url">Descargar</a></td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+        <p>Descarga los mods del canal. Haz clic en uno para ver los detalles.</p>
+        <div class="grid">
+            @foreach (var mod in All)
+            {
+                <a class="mod-card" href="mods/@mod.Slug">
+                    <div class="thumb">@if (mod.Imagen is not null) {<img src="@mod.Imagen" alt="" />}</div>
+                    <p>@mod.Nombre</p>
+                    <span class="muted">@mod.Juego &middot; v@(mod.Version)</span>
+                </a>
+            }
+        </div>
     </div>
 </section>
 
 @code {
-    // Agrega cada mod nuevo aquí
-    private readonly (string Nombre, string Juego, string Version, string Url)[] mods =
+    public record Mod(string Slug, string Nombre, string Juego, string Version, string Descripcion, string? Imagen, string Url);
+
+    // Add each new mod here. Slug is its detail URL (/mods/{Slug}); Imagen is a path under wwwroot, or null for the placeholder.
+    public static readonly Mod[] All =
     [
-        ("Mod de ejemplo 1", "Juego X", "1.0", "#"),
-        ("Mod de ejemplo 2", "Juego Y", "2.3", "#"),
+        new("mod-ejemplo-1", "Mod de ejemplo 1", "Juego X", "1.0", "Descripción del mod de ejemplo 1.", null, "#"),
+        new("mod-ejemplo-2", "Mod de ejemplo 2", "Juego Y", "2.3", "Descripción del mod de ejemplo 2.", null, "#"),
     ];
 }
