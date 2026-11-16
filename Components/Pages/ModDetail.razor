@@ -1,23 +1,24 @@
-@page "/mods/{Slug}"
+@page "/mods/{Id:int}"
+@inject ModStore Store
 @inject NavigationManager Nav
 
 @if (mod is not null)
 {
-    <PageTitle>ShiroLQ - @mod.Nombre</PageTitle>
+    <PageTitle>ShiroLQ - @mod.Name</PageTitle>
 
     <section class="box">
-        <h1>@mod.Nombre</h1>
+        <h1>@mod.Name</h1>
         <div class="box-body">
             <p><a href="mods">&laquo; Volver a Mods</a></p>
             <div class="mod-detail">
-                <div class="thumb">@if (mod.Imagen is not null) {<img src="@mod.Imagen" alt="Captura de @mod.Nombre" />}</div>
+                <div class="thumb"></div>
                 <div class="mod-info">
                     <table class="specs">
-                        <tr><th scope="row">Juego</th><td>@mod.Juego</td></tr>
-                        <tr><th scope="row">Versión</th><td>@mod.Version</td></tr>
+                        <tr><th scope="row">Tipo</th><td>@mod.Type.Label()</td></tr>
                     </table>
-                    <p>@mod.Descripcion</p>
-                    <a class="btn btn-lg" href="@mod.Url">Descargar</a>
+                    <p>@mod.Description</p>
+                    @* download attribute keeps Blazor's enhanced navigation from fetching the file twice *@
+                    <a class="btn btn-lg" href="mods/@mod.Id/download" download>Descargar</a>
                     <p class="muted">Lee el archivo LEEME.txt antes de instalar.</p>
                 </div>
             </div>
@@ -26,13 +27,13 @@
 }
 
 @code {
-    [Parameter] public string Slug { get; set; } = "";
+    [Parameter] public int Id { get; set; }
 
-    private Mods.Mod? mod;
+    private Mod? mod;
 
-    protected override void OnParametersSet()
+    protected override async Task OnParametersSetAsync()
     {
-        mod = Mods.All.FirstOrDefault(m => m.Slug == Slug);
+        mod = await Store.GetAsync(Id);
         if (mod is null) Nav.NotFound();
     }
 }

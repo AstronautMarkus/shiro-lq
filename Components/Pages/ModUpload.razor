@@ -1,0 +1,67 @@
+@page "/mods/upload"
+@rendermode InteractiveServer
+@inject ModStore Store
+@inject NavigationManager Nav
+@inject IWebHostEnvironment Env
+
+<PageTitle>ShiroLQ - Subir mod</PageTitle>
+
+@* There's no login yet, so uploading only exists when running in Development. *@
+@if (Env.IsDevelopment())
+{
+    <section class="box">
+        <h1>Subir mod</h1>
+        <div class="box-body">
+            <EditForm Model="mod" OnValidSubmit="Save">
+                <DataAnnotationsValidator />
+                <p><label>Nombre<br /><InputText @bind-Value="mod.Name" /></label></p>
+                <ValidationMessage For="() => mod.Name" />
+                <p><label>Descripción<br /><InputTextArea @bind-Value="mod.Description" rows="5" cols="50" /></label></p>
+                <ValidationMessage For="() => mod.Description" />
+                <p>
+                    <label>
+                        Tipo<br />
+                        <InputSelect @bind-Value="mod.Type">
+                            @foreach (var type in Enum.GetValues<ModType>())
+                            {
+                                <option value="@type">@type.Label()</option>
+                            }
+                        </InputSelect>
+                    </label>
+                </p>
+                <p><label>Archivo (máx. 500 MB)<br /><InputFile OnChange="e => file = e.File" /></label></p>
+                @if (error is not null)
+                {
+                    <p class="validation-message">@error</p>
+                }
+                <button class="btn" type="submit" disabled="@saving">@(saving ? "Subiendo..." : "Subir")</button>
+            </EditForm>
+        </div>
+    </section>
+}
+
+@code {
+    private const long MaxFileSize = 500L * 1024 * 1024;
+
+    private readonly Mod mod = new();
+    private IBrowserFile? file;
+    private string? error;
+    private bool saving;
+
+    protected override void OnInitialized()
+    {
+        if (!Env.IsDevelopment()) Nav.NotFound();
+    }
+
+    private async Task Save()
+    {
+        if (file is null) { error = "Elige un archivo."; return; }
+        if (file.Size > MaxFileSize) { error = "El archivo pesa más de 500 MB."; return; }
+
+        error = null;
+        saving = true;
+        await using var stream = file.OpenReadStream(MaxFileSize);
+        await Store.AddAsync(mod, stream, file.Name);
+        Nav.NavigateTo($"mods/{mod.Id}");
+    }
+}

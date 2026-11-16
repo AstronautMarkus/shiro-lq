@@ -1,5 +1,6 @@
 using MySqlConnector;
 using shiro_lq.Components;
+using shiro_lq.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,8 +12,11 @@ builder.Services.AddRazorComponents()
 var connectionString = builder.Configuration.GetConnectionString("Default")
     ?? throw new InvalidOperationException("Missing ConnectionStrings:Default. In dev: dotnet user-secrets set \"ConnectionStrings:Default\" \"...\"");
 builder.Services.AddSingleton(_ => new MySqlDataSource(connectionString));
+builder.Services.AddSingleton<ModStore>();
 
 var app = builder.Build();
+
+await app.Services.GetRequiredService<ModStore>().EnsureTableAsync();
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
@@ -27,6 +31,10 @@ app.UseHttpsRedirection();
 app.UseAntiforgery();
 
 app.MapStaticAssets();
+app.MapGet("/mods/{id:int}/download", async (int id, ModStore store) =>
+    await store.GetAsync(id) is { } mod
+        ? Results.File(Path.Combine(store.FilesDir, mod.FileName), "application/octet-stream", mod.Name + Path.GetExtension(mod.FileName))
+        : Results.NotFound());
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
