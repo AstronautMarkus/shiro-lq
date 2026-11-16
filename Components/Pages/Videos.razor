@@ -1,0 +1,18 @@
+@page "/videos"
+
+<PageTitle>ShiroLQ - Videos</PageTitle>
+
+<section class="box">
+    <h1>Videos</h1>
+    <div class="box-body">
+        <div class="grid">
+            @for (var i = 1; i <= 6; i++)
+            {
+                <div>
+                    <div class="video"></div>
+                    <p>Video Loquendo #@i</p>
+                </div>
+            }
+        </div>
+    </div>
+</section>

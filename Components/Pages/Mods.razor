@@ -1,0 +1,35 @@
+@page "/mods"
+
+<PageTitle>ShiroLQ - Mods</PageTitle>
+
+<section class="box">
+    <h1>Mods</h1>
+    <div class="box-body">
+        <p>Descarga los mods del canal. Lee el archivo LEEME.txt antes de instalar.</p>
+        <table>
+            <thead>
+                <tr><th>Nombre</th><th>Juego</th><th>Versión</th><th></th></tr>
+            </thead>
+            <tbody>
+                @foreach (var mod in mods)
+                {
+                    <tr>
+                        <td>@mod.Nombre</td>
+                        <td>@mod.Juego</td>
+                        <td>@mod.Version</td>
+                        <td><a class="btn" href="@mod.Url">Descargar</a></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</section>
+
+@code {
+    // Agrega cada mod nuevo aquí
+    private readonly (string Nombre, string Juego, string Version, string Url)[] mods =
+    [
+        ("Mod de ejemplo 1", "Juego X", "1.0", "#"),
+        ("Mod de ejemplo 2", "Juego Y", "2.3", "#"),
+    ];
+}

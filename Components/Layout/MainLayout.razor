@@ -1,23 +1,57 @@
 ﻿@inherits LayoutComponentBase
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
+<div class="site">
+    <header class="header">
+        <a class="logo" href="">Shiro<span>LQ</span></a>
+        <p class="tagline">Videos Loquendo &middot; Mods &middot; Descargas</p>
+    </header>
+
+    <NavMenu />
+
+    <div class="ticker">
+        <p>&#9733; Bienvenidos a ShiroLQ &#9733; Videos Loquendo nuevos cada semana &#9733; Descarga los últimos mods en la sección Mods &#9733;</p>
     </div>
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
-
-        <article class="content px-4">
+    <div class="columns">
+        <main class="content">
             @Body
-        </article>
-    </main>
+        </main>
+
+        <aside class="sidebar">
+            <section class="box">
+                <h2>El Canal</h2>
+                <div class="box-body">
+                    <p>Videos Loquendo, parodias y más. ¡Suscríbete para no perderte nada!</p>
+                    @* TODO: reemplazar # por la URL del canal *@
+                    <a class="btn" href="#" target="_blank" rel="noopener">&#9654; Suscribirse</a>
+                </div>
+            </section>
+
+            <section class="box">
+                <h2>Secciones</h2>
+                <div class="box-body">
+                    <ul class="links">
+                        <li><a href="videos">Todos los videos</a></li>
+                        <li><a href="mods">Descargar mods</a></li>
+                    </ul>
+                </div>
+            </section>
+        </aside>
+    </div>
+
+    <footer class="footer">
+        <div class="badges" aria-hidden="true">
+            <span class="badge">POWERED BY<br />BLAZOR</span>
+            <span class="badge">LOQUENDO<br />TTS</span>
+            <span class="badge">1024 x 768<br />RESOLUTION</span>
+        </div>
+        <p>&copy; @DateTime.Now.Year ShiroLQ &middot; Todos los derechos reservados</p>
+        <p>Mejor visto a 1024x768 con Internet Explorer 7 o Firefox 3</p>
+    </footer>
 </div>
 
 <div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
+    Ocurrió un error inesperado.
+    <a href="." class="reload">Recargar</a>
     <span class="dismiss">🗙</span>
 </div>

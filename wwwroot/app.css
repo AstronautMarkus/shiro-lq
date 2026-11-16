@@ -1,23 +1,421 @@
+/* ShiroLQ — estilo 2000s / era Aero, base roja. Sin frameworks. */
+
+:root {
+    --red-900: #3d0000;
+    --red-800: #5c0000;
+    --red-700: #8a0000;
+    --red-600: #b30000;
+    --red-500: #e02020;
+    --red-400: #ff5050;
+    --red-50: #fff2f2;
+    --ink: #2b0a0a;
+    --muted: #7a4a4a;
+    /* brillo "vidrio": mitad superior clara con corte duro, típico de botones Aero/Web 2.0 */
+    --gloss: linear-gradient(to bottom, rgba(255, 255, 255, .55) 0%, rgba(255, 255, 255, .15) 50%, rgba(255, 255, 255, 0) 51%, rgba(255, 255, 255, .08) 100%);
+}
+
+* {
+    box-sizing: border-box;
+}
+
 html, body {
-    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    margin: 0;
 }
 
-a, .btn-link {
-    color: #006bb7;
+body {
+    font: 13px/1.5 Tahoma, Verdana, "Segoe UI", sans-serif;
+    color: var(--ink);
+    background:
+        radial-gradient(ellipse at top, #c81818 0%, transparent 60%),
+        repeating-linear-gradient(45deg, rgba(255, 255, 255, .035) 0 2px, transparent 2px 6px),
+        var(--red-900);
+    background-attachment: fixed;
+    min-height: 100vh;
 }
 
-.btn-primary {
+a {
+    color: var(--red-600);
+}
+
+    a:visited {
+        color: #7a1030;
+    }
+
+    a:hover {
+        color: var(--red-400);
+    }
+
+a:focus-visible, .btn:focus-visible {
+    outline: 2px dotted #000;
+    outline-offset: 2px;
+}
+
+h1, h2, h3 {
+    font-family: "Trebuchet MS", Tahoma, sans-serif;
+}
+
+/* ---------- Contenedor 4:3 (1000px, pensado para 1024x768) ---------- */
+
+.site {
+    width: 100%;
+    max-width: 1000px;
+    margin: 20px auto;
+    background: #fff;
+    border: 1px solid #000;
+    border-radius: 8px 8px 0 0;
+    box-shadow: 0 0 30px rgba(0, 0, 0, .7);
+    overflow: hidden;
+}
+
+/* ---------- Cabecera ---------- */
+
+.header {
+    position: relative;
+    padding: 28px 24px;
     color: #fff;
-    background-color: #1b6ec2;
-    border-color: #1861ac;
+    background: var(--gloss), linear-gradient(to bottom, #ec2a2a 0%, #a80000 60%, #600000 100%);
+    border-bottom: 1px solid #300;
+    overflow: hidden;
 }
 
-.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+    /* orbe de luz decorativo */
+    .header::after {
+        content: "";
+        position: absolute;
+        right: -50px;
+        top: -80px;
+        width: 280px;
+        height: 280px;
+        border-radius: 50%;
+        background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, .55), rgba(255, 255, 255, .08) 45%, transparent 70%);
+        pointer-events: none;
+    }
+
+.logo {
+    font: bold 46px/1 "Trebuchet MS", Arial, sans-serif;
+    letter-spacing: -1px;
+    text-decoration: none;
+    text-shadow: 0 1px 0 #600, 0 0 14px rgba(255, 255, 255, .6), 0 3px 6px rgba(0, 0, 0, .6);
+}
+
+    .logo, .logo:visited, .logo:hover {
+        color: #fff;
+    }
+
+        .logo span {
+            color: #ffd0d0;
+        }
+
+.tagline {
+    margin: 6px 0 0;
+    font-size: 12px;
+    color: #ffdede;
+    text-shadow: 0 1px 1px #000;
+}
+
+/* ---------- Navegación ---------- */
+
+.nav {
+    display: flex;
+    flex-wrap: wrap;
+    padding: 0 8px;
+    background: var(--gloss), linear-gradient(#444, #0d0d0d);
+    border-bottom: 2px solid var(--red-600);
+}
+
+    .nav a {
+        padding: 8px 18px;
+        color: #eee;
+        font-weight: bold;
+        font-size: 12px;
+        text-decoration: none;
+        text-shadow: 0 -1px 0 #000;
+        border-right: 1px solid #000;
+        box-shadow: inset -1px 0 0 #444;
+    }
+
+        .nav a:hover {
+            color: #fff;
+            background: var(--gloss), linear-gradient(#666, #2a2a2a);
+        }
+
+        .nav a.active {
+            color: #fff;
+            background: var(--gloss), linear-gradient(#ff3b3b, #a00000);
+        }
+
+/* ---------- Ticker de noticias ---------- */
+
+.ticker {
+    overflow: hidden;
+    white-space: nowrap;
+    padding: 3px 0;
+    font-size: 11px;
+    font-weight: bold;
+    color: var(--red-700);
+    background: var(--red-50);
+    border-bottom: 1px solid #e3b0b0;
+}
+
+    .ticker p {
+        display: inline-block;
+        margin: 0;
+        padding-left: 100%;
+        animation: ticker 22s linear infinite;
+    }
+
+@keyframes ticker {
+    to {
+        transform: translateX(-100%);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ticker p {
+        animation: none;
+        padding-left: 8px;
+    }
+}
+
+/* ---------- Columnas ---------- */
+
+.columns {
+    display: flex;
+    gap: 12px;
+    padding: 12px;
+    align-items: flex-start;
+    background: linear-gradient(#fbeaea, #fff 200px);
 }
 
 .content {
-    padding-top: 1.1rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.sidebar {
+    order: -1;
+    width: 200px;
+    flex-shrink: 0;
+}
+
+/* ---------- Cajas ---------- */
+
+.box {
+    margin-bottom: 12px;
+    background: #fff;
+    border: 1px solid #c98a8a;
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .2);
+    overflow: hidden;
+}
+
+    .box > h1, .box > h2 {
+        margin: 0;
+        padding: 5px 10px;
+        font-size: 13px;
+        color: #fff;
+        text-shadow: 0 1px 1px #400;
+        background: var(--gloss), linear-gradient(#e83030, #900);
+        border-bottom: 1px solid #600;
+    }
+
+    .box > h1 {
+        font-size: 15px;
+    }
+
+.box-body {
+    padding: 10px;
+}
+
+    .box-body > :first-child {
+        margin-top: 0;
+    }
+
+    .box-body > :last-child {
+        margin-bottom: 0;
+    }
+
+.links {
+    list-style: none;
+    padding-left: 0;
+}
+
+    .links li::before {
+        content: "» ";
+        color: var(--red-600);
+        font-weight: bold;
+    }
+
+.muted {
+    color: var(--muted);
+    font-size: 11px;
+}
+
+/* ---------- Botones ---------- */
+
+.btn {
+    display: inline-block;
+    padding: 4px 14px;
+    font: bold 12px Tahoma, Verdana, sans-serif;
+    text-decoration: none;
+    text-shadow: 0 -1px 0 #600;
+    border: 1px solid #700;
+    border-radius: 4px;
+    background: var(--gloss), linear-gradient(#ff4444, #b80000);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .3), inset 0 1px 0 rgba(255, 255, 255, .5);
+    cursor: pointer;
+}
+
+    .btn, .btn:visited, .btn:hover {
+        color: #fff;
+    }
+
+        .btn:hover {
+            background: var(--gloss), linear-gradient(#ff6666, #d40000);
+        }
+
+        .btn:active {
+            background: linear-gradient(#a00, #e33);
+        }
+
+/* ---------- Video 4:3 ---------- */
+
+.video {
+    display: grid;
+    place-items: center;
+    aspect-ratio: 4 / 3;
+    background: radial-gradient(circle, #333, #000);
+    border: 3px solid #222;
+    border-radius: 4px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, .4);
+}
+
+    /* triángulo de "play" mientras no haya iframe dentro */
+    .video:empty::before {
+        content: "";
+        border-left: 36px solid rgba(255, 255, 255, .85);
+        border-top: 22px solid transparent;
+        border-bottom: 22px solid transparent;
+    }
+
+    .video iframe {
+        width: 100%;
+        height: 100%;
+        border: 0;
+    }
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
+}
+
+    .grid .video:empty::before {
+        border-left-width: 20px;
+        border-top-width: 12px;
+        border-bottom-width: 12px;
+    }
+
+    .grid p {
+        margin: 4px 0 0;
+        font-size: 12px;
+        font-weight: bold;
+    }
+
+/* ---------- Tablas ---------- */
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+th {
+    padding: 4px 8px;
+    text-align: left;
+    color: #fff;
+    background: var(--gloss), linear-gradient(#555, #1a1a1a);
+}
+
+td {
+    padding: 5px 8px;
+    border-bottom: 1px dotted #d9a0a0;
+}
+
+tr:nth-child(even) td {
+    background: var(--red-50);
+}
+
+/* ---------- Pie ---------- */
+
+.footer {
+    padding: 12px;
+    text-align: center;
+    font-size: 11px;
+    color: #fcc;
+    background: linear-gradient(#700, #2a0000);
+    border-top: 1px solid #a00;
+}
+
+    .footer p {
+        margin: 4px 0;
+    }
+
+/* botones 88x31 clásicos */
+.badges {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.badge {
+    display: grid;
+    place-items: center;
+    width: 88px;
+    height: 31px;
+    font: bold 9px/1.1 Verdana, sans-serif;
+    text-align: center;
+    color: #fff;
+    background: var(--gloss), linear-gradient(#333, #000);
+    border: 1px solid #888;
+}
+
+    .badge:nth-child(2) {
+        background: var(--gloss), linear-gradient(#e33, #600);
+    }
+
+    .badge:nth-child(3) {
+        color: #000;
+        background: var(--gloss), linear-gradient(#ddd, #999);
+    }
+
+/* ---------- Pantallas chicas: se apila todo ---------- */
+
+@media (max-width: 640px) {
+    .site {
+        margin: 0;
+        border-radius: 0;
+    }
+
+    .header {
+        padding: 18px 16px;
+    }
+
+    .logo {
+        font-size: 34px;
+    }
+
+    .columns {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .sidebar {
+        order: 0;
+        width: auto;
+    }
 }
 
 h1:focus {
@@ -43,18 +441,24 @@ h1:focus {
 }
 
     .blazor-error-boundary::after {
-        content: "An error has occurred."
+        content: "Ocurrió un error."
     }
 
-.darker-border-checkbox.form-check-input {
-    border-color: #929292;
+#blazor-error-ui {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    z-index: 1000;
+    padding: 0.6rem 1.25rem 0.7rem 1.25rem;
+    background: lightyellow;
+    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
 }
 
-.form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
-    color: var(--bs-secondary-color);
-    text-align: end;
-}
-
-.form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
-    text-align: start;
-}
+    #blazor-error-ui .dismiss {
+        cursor: pointer;
+        position: absolute;
+        right: 0.75rem;
+        top: 0.5rem;
+    }
