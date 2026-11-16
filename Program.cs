@@ -1,3 +1,4 @@
+using MySqlConnector;
 using shiro_lq.Components;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -5,6 +6,11 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+// Dev: comes from user-secrets (outside the repo). Prod: from the ConnectionStrings__Default env var.
+var connectionString = builder.Configuration.GetConnectionString("Default")
+    ?? throw new InvalidOperationException("Missing ConnectionStrings:Default. In dev: dotnet user-secrets set \"ConnectionStrings:Default\" \"...\"");
+builder.Services.AddSingleton(_ => new MySqlDataSource(connectionString));
 
 var app = builder.Build();
 

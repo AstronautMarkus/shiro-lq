@@ -7,6 +7,11 @@
     <RootNamespace>shiro_lq</RootNamespace>
     <AssemblyName>$(AssemblyName.Replace(' ', '_'))</AssemblyName>
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+    <UserSecretsId>16b7d772-b792-427c-a636-9e76ffe35345</UserSecretsId>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MySqlConnector" Version="3.0.0" />
+  </ItemGroup>
 
 </Project>
