@@ -20,7 +20,7 @@
             @foreach (var mod in mods)
             {
                 <a class="mod-card" href="mods/@mod.Id">
-                    <div class="thumb"></div>
+                    <div class="thumb"><img src="images/@mod.Thumbnail" alt="" /></div>
                     <p>@mod.Name</p>
                     <span class="muted">@mod.Type.Label()</span>
                 </a>

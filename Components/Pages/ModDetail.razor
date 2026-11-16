@@ -11,7 +11,7 @@
         <div class="box-body">
             <p><a href="mods">&laquo; Volver a Mods</a></p>
             <div class="mod-detail">
-                <div class="thumb"></div>
+                <div class="thumb"><img src="images/@mod.Thumbnail" alt="Miniatura de @mod.Name" /></div>
                 <div class="mod-info">
                     <table class="specs">
                         <tr><th scope="row">Tipo</th><td>@mod.Type.Label()</td></tr>
@@ -19,9 +19,18 @@
                     <p>@mod.Description</p>
                     @* download attribute keeps Blazor's enhanced navigation from fetching the file twice *@
                     <a class="btn btn-lg" href="mods/@mod.Id/download" download>Descargar</a>
-                    <p class="muted">Lee el archivo LEEME.txt antes de instalar.</p>
                 </div>
             </div>
+            @if (mod.Images.Count > 0)
+            {
+                <h2>Fotos</h2>
+                <div class="grid">
+                    @for (var i = 0; i < mod.Images.Count; i++)
+                    {
+                        <a class="thumb" href="images/@mod.Images[i]" target="_blank"><img src="images/@mod.Images[i]" alt="Foto @(i + 1) de @mod.Name" /></a>
+                    }
+                </div>
+            }
         </div>
     </section>
 }

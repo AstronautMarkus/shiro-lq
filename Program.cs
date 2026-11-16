@@ -1,3 +1,4 @@
+using Microsoft.Extensions.FileProviders;
 using MySqlConnector;
 using shiro_lq.Components;
 using shiro_lq.Data;
@@ -16,7 +17,8 @@ builder.Services.AddSingleton<ModStore>();
 
 var app = builder.Build();
 
-await app.Services.GetRequiredService<ModStore>().EnsureTableAsync();
+var modStore = app.Services.GetRequiredService<ModStore>();
+await modStore.EnsureTablesAsync();
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
@@ -27,6 +29,12 @@ if (!app.Environment.IsDevelopment())
 }
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
+// Uploaded mod images (thumbnail + photos). MapStaticAssets only serves files that existed at build time.
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(Directory.CreateDirectory(modStore.ImagesDir).FullName),
+    RequestPath = "/images",
+});
 
 app.UseAntiforgery();
 

@@ -31,4 +31,8 @@ public class Mod
 
     // Server-generated file name inside ModStore.FilesDir.
     public string FileName { get; set; } = "";
+
+    // Server-generated file names inside ModStore.ImagesDir.
+    public string Thumbnail { get; set; } = "";
+    public List<string> Images { get; set; } = [];
 }

@@ -1,4 +1,6 @@
 ﻿@page "/"
+@inject ModStore Store
+@inject IWebHostEnvironment Env
 
 <PageTitle>ShiroLQ - Inicio</PageTitle>
 
@@ -22,8 +24,16 @@
     <h2>Mods recientes</h2>
     <div class="box-body">
         <ul class="links">
-            <li><a href="mods">Mod de ejemplo 1</a> <span class="muted">v1.0</span></li>
-            <li><a href="mods">Mod de ejemplo 2</a> <span class="muted">v2.3</span></li>
+            @foreach (var mod in mods)
+            {
+                <li><a href="mods/@mod.Id">@mod.Name</a> <span class="muted">@mod.Description</span></li>
+            }
         </ul>
     </div>
 </section>
+
+@code {
+    private List<Mod> mods = [];
+
+    protected override async Task OnInitializedAsync() => mods = await Store.GetAllAsync();
+}
