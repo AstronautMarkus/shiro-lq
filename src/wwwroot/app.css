@@ -1,17 +1,17 @@
-/* ShiroLQ — dark theme with red accents. No frameworks. Fonts: Oswald (display) + Roboto Condensed (body), loaded in App.razor. */
+/* ShiroLQ — dark theme with blue accents (Vergil). No frameworks. Fonts: Oswald (display) + Roboto Condensed (body), loaded in App.razor. */
 
 :root {
-    --bg: #0b0b0e;
-    --site: #131317;
-    --panel: #1a1a20;
-    --panel-head: linear-gradient(#33333a, #1e1e24);
-    --line: #34343c;
-    --text: #e6e6ea;
-    --soft: #c4c4cc;
-    --muted: #9b9ba5;
-    --red: #d42a3c;
-    --red-text: #ee5d6d;
-    --btn-red: linear-gradient(#d83246 0%, #a3172a 50%, #6c0b18 100%);
+    --bg: #080a0f;
+    --site: #10131a;
+    --panel: #161a23;
+    --panel-head: linear-gradient(#2c3442, #1a1f2a);
+    --line: #2b3343;
+    --text: #e4e9f2;
+    --soft: #c0c8d6;
+    --muted: #93a0b5;
+    --accent: #3d82dc;
+    --accent-text: #7db5f5;
+    --btn: linear-gradient(#4a8fe6 0%, #1f58a8 50%, #0d2a5c 100%);
     --display: "Oswald", Impact, "Arial Narrow", sans-serif;
     --body: "Roboto Condensed", "Arial Narrow", Tahoma, sans-serif;
 }
@@ -29,12 +29,12 @@ body {
     font: 15px/1.5 var(--body);
     color: var(--text);
     background:
-        linear-gradient(90deg, #2c050b, transparent 20%, transparent 80%, #2c050b),
-        linear-gradient(#3a0810, var(--bg) 640px) var(--bg);
+        linear-gradient(90deg, #061226, transparent 20%, transparent 80%, #061226),
+        linear-gradient(#0b2142, var(--bg) 640px) var(--bg);
 }
 
 a {
-    color: var(--red-text);
+    color: var(--accent-text);
     text-decoration: none;
 }
 
@@ -68,18 +68,41 @@ h1, h2, h3 {
     letter-spacing: .5px;
     text-transform: uppercase;
     color: var(--muted);
-    background: #0d0d10;
+    background: #0a0d13;
 }
 
 /* ---------- Hero header ---------- */
 
 .hero {
+    position: relative;
     padding: 40px 28px 30px;
-    /* Character art: add url(img/hero.png) right bottom / auto 100% no-repeat as the first layer. */
+    /* Dark on the left so the logo stays readable over the GTA screenshot. */
     background:
-        radial-gradient(ellipse at 78% 35%, rgba(170, 20, 40, .45), transparent 55%),
-        radial-gradient(ellipse at 60% 110%, rgba(110, 10, 25, .55), transparent 60%),
-        linear-gradient(90deg, #0c0a0d 35%, #1f0c12);
+        linear-gradient(90deg, #080b12 30%, rgba(8, 11, 18, .7) 55%, rgba(8, 11, 18, .2)),
+        radial-gradient(ellipse at 78% 35%, rgba(40, 110, 210, .4), transparent 55%),
+        url(img/hero-gta.jpg) right center / cover #0c1626;
+}
+
+/* Decorative walfa standing on the right edge of the header */
+.hero-art {
+    position: absolute;
+    right: 48px;
+    bottom: 0;
+    filter: drop-shadow(0 0 10px rgba(90, 160, 255, .6));
+}
+
+.pfp {
+    display: block;
+    margin: 0 auto 12px;
+    border: 2px solid var(--accent);
+    border-radius: 50%;
+    box-shadow: 0 0 14px rgba(61, 130, 220, .5);
+}
+
+.not-found {
+    display: flex;
+    align-items: center;
+    gap: 16px;
 }
 
 .logo {
@@ -95,7 +118,7 @@ h1, h2, h3 {
 
         .logo span {
             font-size: .82em;
-            color: var(--red);
+            color: var(--accent);
         }
 
 .hero-tagline {
@@ -118,7 +141,7 @@ h1, h2, h3 {
     font-size: 12px;
     text-transform: uppercase;
     color: #fff;
-    border: 1px solid var(--red);
+    border: 1px solid var(--accent);
 }
 
 /* ---------- Navigation ---------- */
@@ -128,8 +151,8 @@ h1, h2, h3 {
     flex-wrap: wrap;
     align-items: center;
     padding-right: 12px;
-    background: linear-gradient(#303037, #17171c);
-    border-block: 1px solid #45454d;
+    background: linear-gradient(#2b313d, #151a22);
+    border-block: 1px solid #3d4757;
 }
 
     .nav a:not(.btn) {
@@ -147,8 +170,8 @@ h1, h2, h3 {
         }
 
         .nav a.active {
-            background: linear-gradient(#c42638, #5a0a16);
-            border-bottom-color: #ff5a6a;
+            background: linear-gradient(#2e6cc0, #0d2852);
+            border-bottom-color: #7cc0ff;
         }
 
     .nav .nav-yt {
@@ -163,13 +186,13 @@ h1, h2, h3 {
     align-items: baseline;
     padding: 8px 20px;
     font-size: 13px;
-    background: #17171b;
+    background: #141821;
     border-bottom: 1px solid var(--line);
 }
 
     .ticker b {
         text-transform: uppercase;
-        color: var(--red-text);
+        color: var(--accent-text);
     }
 
     .ticker p {
@@ -250,7 +273,7 @@ h1, h2, h3 {
         text-transform: uppercase;
         color: #f2f2f2;
         background: var(--panel-head);
-        border-left: 4px solid var(--red);
+        border-left: 4px solid var(--accent);
     }
 
         /* "see all" link on the right of a panel header */
@@ -291,7 +314,7 @@ h1, h2, h3 {
 
 .accent {
     margin-top: 0;
-    color: var(--red-text);
+    color: var(--accent-text);
 }
 
 .eyebrow, .page-head .eyebrow {
@@ -299,7 +322,7 @@ h1, h2, h3 {
     font-size: 12px;
     letter-spacing: .3px;
     text-transform: uppercase;
-    color: var(--red-text);
+    color: var(--accent-text);
 }
 
 .card-title {
@@ -358,8 +381,8 @@ h1, h2, h3 {
     letter-spacing: .3px;
     text-transform: uppercase;
     color: #fff;
-    background: var(--btn-red);
-    border: 1px solid #e0485a;
+    background: var(--btn);
+    border: 1px solid #5d9eea;
     border-radius: 3px;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, .25), 0 2px 4px rgba(0, 0, 0, .5);
     cursor: pointer;
@@ -397,11 +420,11 @@ h1, h2, h3 {
     display: grid;
     place-items: center;
     aspect-ratio: 16 / 9;
-    background: radial-gradient(circle, #2a2a30, #0a0a0c);
+    background: radial-gradient(circle, #1f2a3a, #080b10);
     border: 1px solid var(--line);
 }
 
-    /* red "play" button while there's no iframe inside */
+    /* blue "play" button while there's no iframe inside */
     .video:empty::before {
         content: "\25B6";
         display: grid;
@@ -410,8 +433,8 @@ h1, h2, h3 {
         height: 46px;
         font-size: 20px;
         color: #fff;
-        background: var(--btn-red);
-        border: 1px solid #e0485a;
+        background: var(--btn);
+        border: 1px solid #5d9eea;
         border-radius: 4px;
     }
 
@@ -453,7 +476,7 @@ h1, h2, h3 {
     place-items: center;
     aspect-ratio: 4 / 3;
     overflow: hidden;
-    background: linear-gradient(#3a0a12, #0d0d10);
+    background: linear-gradient(#0d2347, #0b0e14);
     border: 1px solid var(--line);
 }
 
@@ -528,7 +551,7 @@ input:not([type=file]), textarea, select {
     padding: 8px 10px;
     font: 15px var(--body);
     color: var(--text);
-    background: #0d0d10;
+    background: #0a0d13;
     border: 1px solid var(--line);
     border-radius: 2px;
 }
@@ -547,8 +570,8 @@ label {
     padding: 22px 28px;
     font-size: 13px;
     color: var(--muted);
-    background: #0f0f12;
-    border-top: 2px solid var(--red);
+    background: #0c0f15;
+    border-top: 2px solid var(--accent);
 }
 
     .footer p {
@@ -574,6 +597,10 @@ label {
 
     .logo {
         font-size: 52px;
+    }
+
+    .hero-art {
+        display: none;
     }
 
     .topbar, .ticker {

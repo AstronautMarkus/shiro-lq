@@ -15,7 +15,7 @@ shiro-lq/
     Components/   Páginas y layout de Blazor
     Data/         Acceso a MySQL (ModStore)
     Models/       Modelos (Mod, ModType)
-    wwwroot/      CSS y archivos estáticos
+    wwwroot/      CSS y archivos estáticos (imágenes de decoración en img/)
     uploads/      Archivos subidos por los usuarios (no se sube a git)
     Program.cs
     shiro-lq.csproj
@@ -81,3 +81,11 @@ Los mods y sus imágenes se guardan en disco dentro de `uploads/`, junto a la ap
 - `uploads/images/`: miniaturas y fotos, servidas públicamente en `/images`.
 
 Esta carpeta no está en git. Si se borra, los mods quedan en la base de datos pero sin archivos. Al publicar hay que conservarla entre despliegues.
+
+## Créditos de imágenes
+
+Las imágenes de decoración están en `src/wwwroot/img/`. Son material de fans y no tienen licencia libre:
+
+- `hero-gta.jpg`: captura de GTA III del mod [Playa2 As A Pedestrian](https://www.gtagarage.com/mods/show.php?id=26715) de ClaudeVercetti2014 (el skin "Claudio Slow" de los videos Loquendo), recortada y teñida de azul.
+- `walfa-ichirin.png`, `walfa-seija.png` y `pfp.png`: sprites de [Walfas Create](https://walfas.org/), recortados con fondo transparente.
+- `pfp.png` es una foto de perfil temporal. Se reemplaza con el avatar real del canal usando el mismo nombre de archivo.
