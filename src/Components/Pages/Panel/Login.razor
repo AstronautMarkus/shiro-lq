@@ -1,0 +1,64 @@
+@page "/admin/login"
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Authentication.Cookies
+@using Microsoft.AspNetCore.RateLimiting
+@attribute [AllowAnonymous]
+@attribute [EnableRateLimiting("login")]
+@inject AdminStore Admins
+@inject NavigationManager Nav
+
+<PageTitle>Admin - Iniciar sesión</PageTitle>
+
+@* Static form post, not interactive: signing in has to set the cookie on a real HTTP response. *@
+<div class="login">
+    <p class="login-logo">Shiro <span>LQ</span></p>
+    <h1>Panel de administración</h1>
+    <div class="panel">
+        <EditForm Model="Input" FormName="login" OnValidSubmit="LogIn" class="form">
+            <DataAnnotationsValidator />
+            <label class="field">Usuario<InputText @bind-Value="Input.Username" autocomplete="username" placeholder="Tu nombre de usuario" /></label>
+            <ValidationMessage For="() => Input.Username" />
+            <label class="field">Contraseña<InputText type="password" @bind-Value="Input.Password" autocomplete="current-password" placeholder="Tu contraseña" /></label>
+            <ValidationMessage For="() => Input.Password" />
+            @if (failed)
+            {
+                <p class="alert">Usuario o contraseña incorrectos.</p>
+            }
+            <button class="btn btn-primary btn-block" type="submit">Entrar</button>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
+
+    [SupplyParameterFromForm] private LoginInput Input { get; set; } = default!;
+
+    private bool failed;
+
+    protected override void OnInitialized() => Input ??= new();
+
+    private async Task LogIn()
+    {
+        var admin = await Admins.VerifyAsync(Input.Username, Input.Password);
+        if (admin is null)
+        {
+            failed = true;
+            return;
+        }
+
+        Claim[] claims = [new(ClaimTypes.NameIdentifier, admin.Id.ToString()), new(ClaimTypes.Name, admin.Name)];
+        await HttpContext.SignInAsync(new ClaimsPrincipal(new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme)));
+        Nav.NavigateTo("admin");
+    }
+
+    private class LoginInput
+    {
+        [Required(ErrorMessage = "Escribe tu usuario.")]
+        public string Username { get; set; } = "";
+
+        [Required(ErrorMessage = "Escribe tu contraseña.")]
+        public string Password { get; set; } = "";
+    }
+}

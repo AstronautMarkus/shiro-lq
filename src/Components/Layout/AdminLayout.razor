@@ -1,0 +1,30 @@
+@inherits LayoutComponentBase
+
+<div class="admin">
+    <AuthorizeView>
+        <aside class="admin-nav">
+            <p class="admin-logo">Shiro <span>LQ</span> <small>admin</small></p>
+            <nav>
+                <NavLink href="admin" Match="NavLinkMatch.All">Mods</NavLink>
+                <NavLink href="admin/admins">Admins</NavLink>
+                @* Full page load: the public site uses a different stylesheet. *@
+                <a href="" data-enhance-nav="false">Ver sitio &nearr;</a>
+            </nav>
+            <form class="admin-user" method="post" action="admin/logout">
+                <AntiforgeryToken />
+                <span>@context.User.Identity?.Name</span>
+                <button class="btn btn-sm" type="submit">Cerrar sesión</button>
+            </form>
+        </aside>
+    </AuthorizeView>
+
+    <main class="admin-main">
+        @Body
+    </main>
+</div>
+
+<div id="blazor-error-ui" data-nosnippet>
+    Ocurrió un error inesperado.
+    <a href="." class="reload">Recargar</a>
+    <span class="dismiss">🗙</span>
+</div>

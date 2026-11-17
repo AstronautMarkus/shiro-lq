@@ -1,0 +1,58 @@
+@page "/admin"
+@rendermode InteractiveServer
+@inject ModStore Store
+@inject IJSRuntime JS
+
+<PageTitle>Admin - Mods</PageTitle>
+
+<div class="admin-head">
+    <h1>Mods</h1>
+    <a class="btn btn-primary" href="admin/mods/new">+ Nuevo mod</a>
+</div>
+
+@if (mods is null)
+{
+    <p class="hint">Cargando...</p>
+}
+else if (mods.Count == 0)
+{
+    <div class="panel empty">Todavía no hay mods. <a href="admin/mods/new">Sube el primero</a>.</div>
+}
+else
+{
+    <div class="panel table-wrap">
+        <table class="table">
+            <thead>
+                <tr><th>Miniatura</th><th>Nombre</th><th>Tipo</th><th></th></tr>
+            </thead>
+            <tbody>
+                @foreach (var mod in mods)
+                {
+                    <tr>
+                        <td><img class="table-thumb" src="images/@mod.Thumbnail" alt="" /></td>
+                        <td><a href="admin/mods/@mod.Id">@mod.Name</a></td>
+                        <td>@mod.Type.Label()</td>
+                        <td class="actions">
+                            <a class="btn btn-sm" href="mods/@mod.Id" target="_blank" rel="noopener">Ver</a>
+                            <a class="btn btn-sm" href="admin/mods/@mod.Id">Editar</a>
+                            <button class="btn btn-sm btn-danger" type="button" @onclick="() => Delete(mod)">Eliminar</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private List<Mod>? mods;
+
+    protected override async Task OnInitializedAsync() => mods = await Store.GetAllAsync();
+
+    private async Task Delete(Mod mod)
+    {
+        if (!await JS.InvokeAsync<bool>("confirm", $"¿Eliminar \"{mod.Name}\"? También se borran su archivo y sus fotos.")) return;
+        await Store.DeleteAsync(mod.Id);
+        mods!.Remove(mod);
+    }
+}

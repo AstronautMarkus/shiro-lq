@@ -1,0 +1,69 @@
+@page "/admin/admins"
+@rendermode InteractiveServer
+@inject AdminStore Admins
+@inject IJSRuntime JS
+
+<PageTitle>Admin - Admins</PageTitle>
+
+<div class="admin-head">
+    <h1>Admins</h1>
+    <a class="btn btn-primary" href="admin/admins/new">+ Nuevo admin</a>
+</div>
+
+@if (admins is null)
+{
+    <p class="hint">Cargando...</p>
+}
+else
+{
+    <div class="panel table-wrap">
+        <table class="table">
+            <thead>
+                <tr><th>Nombre</th><th>Usuario</th><th>Email</th><th></th></tr>
+            </thead>
+            <tbody>
+                @foreach (var admin in admins)
+                {
+                    <tr>
+                        <td><a href="admin/admins/@admin.Id">@admin.Name</a></td>
+                        <td>@admin.Username</td>
+                        <td>@admin.Email</td>
+                        <td class="actions">
+                            <a class="btn btn-sm" href="admin/admins/@admin.Id">Editar</a>
+                            @if (admin.Id == currentId)
+                            {
+                                <span class="hint">(tú)</span>
+                            }
+                            else
+                            {
+                                <button class="btn btn-sm btn-danger" type="button" @onclick="() => Delete(admin)">Eliminar</button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = default!;
+
+    private List<Admin>? admins;
+    private int currentId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        currentId = int.Parse((await AuthState).User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        admins = await Admins.GetAllAsync();
+    }
+
+    private async Task Delete(Admin admin)
+    {
+        // Nobody deletes their own account, so there's always at least one admin left.
+        if (admin.Id == currentId) return;
+        if (!await JS.InvokeAsync<bool>("confirm", $"¿Eliminar a {admin.Name} ({admin.Username})? Pierde el acceso al panel al instante.")) return;
+        await Admins.DeleteAsync(admin.Id);
+        admins!.Remove(admin);
+    }
+}

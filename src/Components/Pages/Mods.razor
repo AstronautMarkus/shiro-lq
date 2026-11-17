@@ -1,6 +1,5 @@
 @page "/mods"
 @inject ModStore Store
-@inject IWebHostEnvironment Env
 
 <PageTitle>ShiroLQ - Mods</PageTitle>
 
@@ -9,11 +8,6 @@
     <h1>El arsenal de descargas</h1>
     <p>Los skins, mapas y objetos que ves en mis videos. Todo en un solo lugar.</p>
 </div>
-
-@if (Env.IsDevelopment())
-{
-    <p><a class="btn" href="mods/upload">+ Subir mod</a></p>
-}
 
 <p class="meta">@mods.Count @(mods.Count == 1 ? "archivo" : "archivos")</p>
 

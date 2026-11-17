@@ -73,39 +73,57 @@ public class ModStore(MySqlDataSource db, IFileStorage storage)
         return mod;
     }
 
-    // Saves every file to storage, then inserts the mod and its images in one transaction; sets Id, FileName, Thumbnail and Images.
-    public async Task AddAsync(Mod mod, IBrowserFile file, IBrowserFile thumbnail, IReadOnlyList<IBrowserFile> images)
+    // Insert when mod.Id is 0, update otherwise. Saves the new files first, then the rows in one transaction; sets Id, FileName, Thumbnail and Images.
+    // On update, a null file or thumbnail keeps the current one, and new images replace all current ones.
+    public async Task SaveAsync(Mod mod, IBrowserFile? file, IBrowserFile? thumbnail, IReadOnlyList<IBrowserFile> images)
     {
         if (images.Count > MaxImages) throw new ArgumentException($"At most {MaxImages} images.");
-        if (!IsImage(thumbnail.Name) || !images.All(i => IsImage(i.Name))) throw new ArgumentException("Images must be " + string.Join(", ", ImageExtensions));
+        if ((thumbnail is not null && !IsImage(thumbnail.Name)) || !images.All(i => IsImage(i.Name))) throw new ArgumentException("Images must be " + string.Join(", ", ImageExtensions));
+        var old = mod.Id == 0 ? null : await GetAsync(mod.Id) ?? throw new KeyNotFoundException($"Mod {mod.Id} not found.");
+        if (old is null && (file is null || thumbnail is null)) throw new ArgumentException("A new mod needs a file and a thumbnail.");
+        var replaceImages = old is null || images.Count > 0;
 
         var saved = new List<string>();
         try
         {
-            mod.FileName = await SaveAsync(file, FilesDir, MaxFileSize, saved);
-            mod.Thumbnail = await SaveAsync(thumbnail, ImagesDir, MaxImageSize, saved);
-            mod.Images = [];
-            foreach (var image in images) mod.Images.Add(await SaveAsync(image, ImagesDir, MaxImageSize, saved));
+            mod.FileName = file is null ? old!.FileName : await SaveFileAsync(file, FilesDir, MaxFileSize, saved);
+            mod.Thumbnail = thumbnail is null ? old!.Thumbnail : await SaveFileAsync(thumbnail, ImagesDir, MaxImageSize, saved);
+            if (replaceImages)
+            {
+                mod.Images = [];
+                foreach (var image in images) mod.Images.Add(await SaveFileAsync(image, ImagesDir, MaxImageSize, saved));
+            }
+            else mod.Images = old!.Images;
 
             await using var conn = await db.OpenConnectionAsync();
             await using var tx = await conn.BeginTransactionAsync();
-            await using (var cmd = new MySqlCommand(
-                "INSERT INTO mods (name, description, type, file_name, thumbnail) VALUES (@name, @description, @type, @fileName, @thumbnail)", conn, tx))
+            await using (var cmd = new MySqlCommand(old is null
+                ? "INSERT INTO mods (name, description, type, file_name, thumbnail) VALUES (@name, @description, @type, @fileName, @thumbnail)"
+                : "UPDATE mods SET name = @name, description = @description, type = @type, file_name = @fileName, thumbnail = @thumbnail WHERE id = @id", conn, tx))
             {
+                cmd.Parameters.AddWithValue("@id", mod.Id);
                 cmd.Parameters.AddWithValue("@name", mod.Name);
                 cmd.Parameters.AddWithValue("@description", mod.Description);
                 cmd.Parameters.AddWithValue("@type", mod.Type.ToString());
                 cmd.Parameters.AddWithValue("@fileName", mod.FileName);
                 cmd.Parameters.AddWithValue("@thumbnail", mod.Thumbnail);
                 await cmd.ExecuteNonQueryAsync();
-                mod.Id = (int)cmd.LastInsertedId;
+                if (old is null) mod.Id = (int)cmd.LastInsertedId;
             }
-            foreach (var image in mod.Images)
+            if (replaceImages)
             {
-                await using var cmd = new MySqlCommand("INSERT INTO mod_images (mod_id, file_name) VALUES (@modId, @fileName)", conn, tx);
-                cmd.Parameters.AddWithValue("@modId", mod.Id);
-                cmd.Parameters.AddWithValue("@fileName", image);
-                await cmd.ExecuteNonQueryAsync();
+                await using (var cmd = new MySqlCommand("DELETE FROM mod_images WHERE mod_id = @modId", conn, tx))
+                {
+                    cmd.Parameters.AddWithValue("@modId", mod.Id);
+                    await cmd.ExecuteNonQueryAsync();
+                }
+                foreach (var image in mod.Images)
+                {
+                    await using var cmd = new MySqlCommand("INSERT INTO mod_images (mod_id, file_name) VALUES (@modId, @fileName)", conn, tx);
+                    cmd.Parameters.AddWithValue("@modId", mod.Id);
+                    cmd.Parameters.AddWithValue("@fileName", image);
+                    await cmd.ExecuteNonQueryAsync();
+                }
             }
             await tx.CommitAsync();
         }
@@ -114,9 +132,29 @@ public class ModStore(MySqlDataSource db, IFileStorage storage)
             foreach (var key in saved) await storage.DeleteAsync(key); // don't leave orphan or half-written files behind
             throw;
         }
+
+        // Only after the commit: until then the old rows still point at these files.
+        if (old is not null)
+            foreach (var key in Keys(old).Except(Keys(mod))) await storage.DeleteAsync(key);
     }
 
-    private async Task<string> SaveAsync(IBrowserFile file, string dir, long maxSize, List<string> saved)
+    public async Task DeleteAsync(int id)
+    {
+        if (await GetAsync(id) is not { } mod) return;
+        await using (var conn = await db.OpenConnectionAsync())
+        await using (var cmd = new MySqlCommand("DELETE FROM mods WHERE id = @id", conn)) // mod_images go with it (ON DELETE CASCADE)
+        {
+            cmd.Parameters.AddWithValue("@id", id);
+            await cmd.ExecuteNonQueryAsync();
+        }
+        foreach (var key in Keys(mod)) await storage.DeleteAsync(key);
+    }
+
+    // Every storage key a mod uses.
+    private static IEnumerable<string> Keys(Mod mod) =>
+        mod.Images.Select(i => $"{ImagesDir}/{i}").Append($"{ImagesDir}/{mod.Thumbnail}").Append($"{FilesDir}/{mod.FileName}");
+
+    private async Task<string> SaveFileAsync(IBrowserFile file, string dir, long maxSize, List<string> saved)
     {
         // Never use the client's name in storage: only its extension is kept (GetExtension can't contain path separators).
         var name = Guid.NewGuid() + Path.GetExtension(file.Name);

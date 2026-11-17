@@ -12,9 +12,9 @@ Sitio web del canal ShiroLQ: videos Loquendo, GTA y una sección de descargas de
 ```
 shiro-lq/
   src/
-    Components/   Páginas y layout de Blazor
-    Data/         Acceso a MySQL (ModStore) y almacenamiento de archivos (S3 o disco)
-    Models/       Modelos (Mod, ModType)
+    Components/   Páginas y layouts de Blazor (el panel de admin está en Pages/Panel)
+    Data/         Acceso a MySQL (ModStore, AdminStore) y almacenamiento de archivos (S3 o disco)
+    Models/       Modelos (Mod, ModType, Admin)
     wwwroot/      CSS y archivos estáticos (imágenes de decoración en img/)
     uploads/      Archivos subidos, solo con almacenamiento Local (no se sube a git)
     Program.cs
@@ -75,7 +75,20 @@ dotnet user-secrets set "Storage:Provider" "Local" --project src
 
 Se puede cambiar de uno a otro cuando se quiera, pero los archivos no se copian solos: los mods subidos con un proveedor no aparecen con el otro.
 
-### 4. Ejecutar
+### 4. Primer admin
+
+El panel de administración necesita al menos un admin. Si la tabla `admins` está vacía, la app crea el primero al arrancar con estos datos (y si faltan, no arranca y muestra el comando):
+
+```bash
+dotnet user-secrets set "Admin:Name" "Shiro" --project src
+dotnet user-secrets set "Admin:Username" "shiro" --project src
+dotnet user-secrets set "Admin:Email" "shiro@ejemplo.com" --project src
+dotnet user-secrets set "Admin:Password" "una-contraseña-larga" --project src
+```
+
+Solo se usan esa primera vez. Después se pueden borrar (`dotnet user-secrets remove "Admin:Password" --project src`) y los demás admins se crean desde el panel.
+
+### 5. Ejecutar
 
 ```bash
 dotnet run --project src
@@ -98,6 +111,15 @@ export Storage__S3__Bucket="..." Storage__S3__Region="..." Storage__S3__AccessKe
 dotnet publish src -c Release -o publish
 cd publish && dotnet shiro-lq.dll
 ```
+
+## Panel de administración
+
+En `/admin` (no hay enlace desde el sitio público). Pide iniciar sesión en `/admin/login` y tiene su propia hoja de estilos (`wwwroot/admin.css`).
+
+- **Mods**: crear, editar y eliminar. Al editar, el archivo, la miniatura y las fotos son opcionales: si no se eligen, se quedan los actuales; si se eligen fotos nuevas, reemplazan todas las anteriores. Al eliminar un mod también se borran sus archivos del almacenamiento.
+- **Admins**: crear, editar y eliminar. Al editar, la contraseña vacía deja la actual. Nadie puede borrarse a sí mismo, y un admin borrado pierde el acceso en su siguiente petición.
+
+Las contraseñas se guardan con hash (PBKDF2 de ASP.NET Core). El login acepta 10 peticiones por minuto por IP; detrás de un proxy inverso todas llegan con la IP del proxy y comparten ese límite.
 
 ## Archivos subidos
 
