@@ -4,7 +4,7 @@ using shiro_lq.Models;
 
 namespace shiro_lq.Data;
 
-public class ModStore(MySqlDataSource db, IWebHostEnvironment env)
+public class ModStore(MySqlDataSource db, IFileStorage storage)
 {
     public const long MaxFileSize = 500L * 1024 * 1024;
     public const long MaxImageSize = 10L * 1024 * 1024;
@@ -15,10 +15,9 @@ public class ModStore(MySqlDataSource db, IWebHostEnvironment env)
 
     private const string Columns = "id, name, description, type, file_name, thumbnail";
 
-    // shortcut: local disk storage, move to object storage (S3/Azure Blob) before running more than one server.
-    // Mod files stay private (only reachable through the download endpoint); images are served publicly under /images.
-    public string FilesDir { get; } = Path.Combine(env.ContentRootPath, "uploads", "mods");
-    public string ImagesDir { get; } = Path.Combine(env.ContentRootPath, "uploads", "images");
+    // Storage key prefixes. Mod files are only reachable through the download endpoint; images are served under /images.
+    public const string FilesDir = "mods";
+    public const string ImagesDir = "images";
 
     public static bool IsImage(string fileName) => ImageExtensions.Contains(Path.GetExtension(fileName), StringComparer.OrdinalIgnoreCase);
 
@@ -74,7 +73,7 @@ public class ModStore(MySqlDataSource db, IWebHostEnvironment env)
         return mod;
     }
 
-    // Saves every file to disk, then inserts the mod and its images in one transaction; sets Id, FileName, Thumbnail and Images.
+    // Saves every file to storage, then inserts the mod and its images in one transaction; sets Id, FileName, Thumbnail and Images.
     public async Task AddAsync(Mod mod, IBrowserFile file, IBrowserFile thumbnail, IReadOnlyList<IBrowserFile> images)
     {
         if (images.Count > MaxImages) throw new ArgumentException($"At most {MaxImages} images.");
@@ -112,21 +111,19 @@ public class ModStore(MySqlDataSource db, IWebHostEnvironment env)
         }
         catch
         {
-            foreach (var path in saved) File.Delete(path); // don't leave orphan or half-written files behind
+            foreach (var key in saved) await storage.DeleteAsync(key); // don't leave orphan or half-written files behind
             throw;
         }
     }
 
-    private static async Task<string> SaveAsync(IBrowserFile file, string dir, long maxSize, List<string> saved)
+    private async Task<string> SaveAsync(IBrowserFile file, string dir, long maxSize, List<string> saved)
     {
-        // Never use the client's name on disk: only its extension is kept (GetExtension can't contain path separators).
+        // Never use the client's name in storage: only its extension is kept (GetExtension can't contain path separators).
         var name = Guid.NewGuid() + Path.GetExtension(file.Name);
-        Directory.CreateDirectory(dir);
-        var path = Path.Combine(dir, name);
-        saved.Add(path);
+        var key = $"{dir}/{name}";
+        saved.Add(key);
         await using var input = file.OpenReadStream(maxSize);
-        await using var output = File.Create(path);
-        await input.CopyToAsync(output);
+        await storage.SaveAsync(key, input, file.Size);
         return name;
     }
 

@@ -29,10 +29,10 @@ public class Mod
 
     public ModType Type { get; set; }
 
-    // Server-generated file name inside ModStore.FilesDir.
+    // Server-generated file name under the ModStore.FilesDir storage prefix.
     public string FileName { get; set; } = "";
 
-    // Server-generated file names inside ModStore.ImagesDir.
+    // Server-generated file names under the ModStore.ImagesDir storage prefix.
     public string Thumbnail { get; set; } = "";
     public List<string> Images { get; set; } = [];
 }

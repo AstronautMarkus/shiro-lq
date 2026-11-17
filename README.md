@@ -13,10 +13,10 @@ Sitio web del canal ShiroLQ: videos Loquendo, GTA y una sección de descargas de
 shiro-lq/
   src/
     Components/   Páginas y layout de Blazor
-    Data/         Acceso a MySQL (ModStore)
+    Data/         Acceso a MySQL (ModStore) y almacenamiento de archivos (S3 o disco)
     Models/       Modelos (Mod, ModType)
     wwwroot/      CSS y archivos estáticos (imágenes de decoración en img/)
-    uploads/      Archivos subidos por los usuarios (no se sube a git)
+    uploads/      Archivos subidos, solo con almacenamiento Local (no se sube a git)
     Program.cs
     shiro-lq.csproj
 ```
@@ -51,7 +51,31 @@ dotnet user-secrets clear --project src                             # borrar tod
 
 Si falta la cadena de conexión, la app no arranca y muestra el comando que hay que ejecutar.
 
-### 3. Ejecutar
+### 3. Almacenamiento de archivos: S3 o Local
+
+Los mods y sus imágenes se pueden guardar en un bucket de AWS S3 o en el disco del servidor. Se elige con `Storage:Provider` y es obligatorio: si falta, la app no arranca y muestra el comando.
+
+**S3** (el normal). El bucket queda privado: la app redirige cada descarga e imagen a una URL firmada que dura 15 minutos.
+
+```bash
+dotnet user-secrets set "Storage:Provider" "S3" --project src
+dotnet user-secrets set "Storage:S3:Bucket" "nombre-del-bucket" --project src
+dotnet user-secrets set "Storage:S3:Region" "us-east-1" --project src
+dotnet user-secrets set "Storage:S3:AccessKey" "AKIA..." --project src
+dotnet user-secrets set "Storage:S3:SecretKey" "..." --project src
+```
+
+El usuario IAM de esas claves necesita `s3:PutObject`, `s3:GetObject` y `s3:DeleteObject` sobre `arn:aws:s3:::nombre-del-bucket/*`.
+
+**Local** (respaldo, por ejemplo sin internet o si AWS falla). Los archivos van a `uploads/` junto a la app:
+
+```bash
+dotnet user-secrets set "Storage:Provider" "Local" --project src
+```
+
+Se puede cambiar de uno a otro cuando se quiera, pero los archivos no se copian solos: los mods subidos con un proveedor no aparecen con el otro.
+
+### 4. Ejecutar
 
 ```bash
 dotnet run --project src
@@ -65,22 +89,24 @@ dotnet run --project src --launch-profile https
 
 ## Producción
 
-Los user-secrets solo se leen en el entorno `Development`. En producción la cadena de conexión se pasa como variable de entorno (el doble guion bajo reemplaza a los dos puntos):
+Los user-secrets solo se leen en el entorno `Development`. En producción la cadena de conexión y el almacenamiento se pasan como variables de entorno (el doble guion bajo reemplaza a los dos puntos):
 
 ```bash
 export ConnectionStrings__Default="Server=...;Database=shiro_lq;User ID=...;Password=..."
+export Storage__Provider="S3"
+export Storage__S3__Bucket="..." Storage__S3__Region="..." Storage__S3__AccessKey="..." Storage__S3__SecretKey="..."
 dotnet publish src -c Release -o publish
 cd publish && dotnet shiro-lq.dll
 ```
 
 ## Archivos subidos
 
-Los mods y sus imágenes se guardan en disco dentro de `uploads/`, junto a la app:
+Con cualquiera de los dos proveedores se usan las mismas rutas (en S3 son prefijos del bucket, en Local carpetas dentro de `uploads/`):
 
-- `uploads/mods/`: archivos de los mods. Solo se pueden bajar desde `/mods/{id}/download`.
-- `uploads/images/`: miniaturas y fotos, servidas públicamente en `/images`.
+- `mods/`: archivos de los mods. Solo se pueden bajar desde `/mods/{id}/download`.
+- `images/`: miniaturas y fotos, servidas públicamente en `/images/{nombre}`.
 
-Esta carpeta no está en git. Si se borra, los mods quedan en la base de datos pero sin archivos. Al publicar hay que conservarla entre despliegues.
+Con Local, `uploads/` no está en git. Si se borra, los mods quedan en la base de datos pero sin archivos, así que al publicar hay que conservarla entre despliegues. Con S3 pasa lo mismo si se vacía el bucket.
 
 ## Créditos de imágenes
 
