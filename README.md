@@ -25,7 +25,7 @@ shiro-lq/
 
 ### 1. Crear la base de datos
 
-Las tablas se crean solas al arrancar la app, pero la base de datos tiene que existir:
+Las tablas se crean solas al arrancar la app (y una tabla `mods` de una versión anterior recibe sola las columnas nuevas), pero la base de datos tiene que existir:
 
 ```sql
 CREATE DATABASE shiro_lq;
@@ -117,6 +117,7 @@ cd publish && dotnet shiro-lq.dll
 En `/admin` (no hay enlace desde el sitio público). Pide iniciar sesión en `/admin/login` y tiene su propia hoja de estilos y JavaScript (`wwwroot/admin.css` y `wwwroot/admin.js`). Las acciones se confirman en modales y el resultado se avisa con notificaciones; no usa los `alert`/`confirm` del navegador.
 
 - **Mods**: crear, editar y eliminar. El editor muestra una vista previa en vivo de cómo se verá el mod en el sitio y de las imágenes elegidas antes de subirlas. Los archivos se pueden arrastrar, y cada cosa elegida se puede quitar o deshacer antes de guardar. Al editar, el archivo y la miniatura son opcionales (si no se eligen, se quedan los actuales) y las fotos se quitan o agregan de a una. Al guardar se ve el progreso de la subida y se puede cancelar: no queda nada guardado a medias. Si sales con cambios sin guardar, pide confirmación. Al eliminar un mod también se borra su carpeta del almacenamiento.
+- **Visibilidad y autor**: cada mod guarda quién lo publicó (`author_id`, la cuenta que lo creó) y si es público o privado. Los privados no salen en el sitio, y su página, descarga e imágenes dan 404 a quien no haya iniciado sesión; con sesión iniciada se ven con un aviso. Si se borra la cuenta del autor, sus mods se quedan, sin autor (`ON DELETE SET NULL`). Cualquier cuenta puede editar cualquier mod: el autor es solo informativo.
 - **Admins**: crear, editar (en un modal) y eliminar. Al editar, la contraseña vacía deja la actual. Nadie puede borrarse a sí mismo, y un admin borrado pierde el acceso en su siguiente petición.
 
 Las contraseñas se guardan con hash (PBKDF2 de ASP.NET Core). El login acepta 10 peticiones por minuto por IP; detrás de un proxy inverso todas llegan con la IP del proxy y comparten ese límite.

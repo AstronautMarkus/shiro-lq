@@ -1,6 +1,6 @@
 @page "/admin"
-@rendermode InteractiveServer
-@attribute [StreamRendering]
+@* No prerender: it would show the content, then the skeleton again while the interactive copy reloads. *@
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @inject ModStore Store
 @inject IJSRuntime JS
 @inject ILogger<ModList> Log
@@ -24,7 +24,6 @@
 
 @if (Mods is null)
 {
-    @* Streamed while prerendering; once interactive, the list comes from [PersistentState] without loading again. *@
     <div class="panel table-wrap" aria-busy="true">
         <span class="sr-only">Cargando mods...</span>
         <div class="table-tools"><span class="skeleton skeleton-input"></span></div>
@@ -93,15 +92,14 @@ else
 <ConfirmDialog @ref="confirm" />
 
 @code {
-    // Public for [PersistentState]: what prerendering loaded is reused when the page turns interactive.
-    [PersistentState(AllowUpdates = true)] public List<Mod>? Mods { get; set; }
+    private List<Mod>? Mods { get; set; }
 
     private string search = "";
     private ConfirmDialog confirm = default!;
 
     private IEnumerable<Mod> Visible => Mods!.Where(m => m.Name.Contains(search.Trim(), StringComparison.CurrentCultureIgnoreCase));
 
-    protected override async Task OnInitializedAsync() => Mods ??= await Store.GetAllAsync(includePrivate: true);
+    protected override async Task OnInitializedAsync() => Mods = await Store.GetAllAsync(includePrivate: true);
 
     private async Task Delete(Mod mod)
     {
