@@ -1,4 +1,4 @@
-@page "/mods/{Id:int}"
+@page "/mods/{Id:guid}"
 @inject ModStore Store
 @inject NavigationManager Nav
 
@@ -16,7 +16,7 @@
 
     <div class="thumb shot">
         <span class="tag">Captura dentro del juego</span>
-        <img src="images/@mod.Thumbnail" alt="Miniatura de @mod.Name" />
+        <img src="@mod.ImageUrl(mod.Thumbnail)" alt="Miniatura de @mod.Name" />
     </div>
 
     <section class="box">
@@ -44,7 +44,7 @@
                 <div class="grid">
                     @for (var i = 0; i < mod.Images.Count; i++)
                     {
-                        <a class="thumb" href="images/@mod.Images[i]" target="_blank"><img src="images/@mod.Images[i]" alt="Foto @(i + 1) de @mod.Name" /></a>
+                        <a class="thumb" href="@mod.ImageUrl(mod.Images[i])" target="_blank"><img src="@mod.ImageUrl(mod.Images[i])" alt="Foto @(i + 1) de @mod.Name" /></a>
                     }
                 </div>
             </div>
@@ -53,7 +53,7 @@
 }
 
 @code {
-    [Parameter] public int Id { get; set; }
+    [Parameter] public Guid Id { get; set; }
 
     private Mod? mod;
 

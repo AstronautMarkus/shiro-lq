@@ -19,7 +19,8 @@ public static class ModTypeExtensions
 
 public class Mod
 {
-    public int Id { get; set; }
+    // UUIDv7, set by ModStore on insert: sorts by creation time (good for the index) and URLs don't reveal how many mods exist.
+    public Guid Id { get; set; }
 
     [Required(ErrorMessage = "El nombre es obligatorio."), StringLength(100, ErrorMessage = "Máximo 100 caracteres.")]
     public string Name { get; set; } = "";
@@ -29,10 +30,13 @@ public class Mod
 
     public ModType Type { get; set; }
 
-    // Server-generated file name under the ModStore.FilesDir storage prefix.
+    // Server-generated file name, stored at ModStore.FileKey(Id, FileName).
     public string FileName { get; set; } = "";
 
-    // Server-generated file names under the ModStore.ImagesDir storage prefix.
+    // Server-generated file names, stored at ModStore.ImageKey(Id, name).
     public string Thumbnail { get; set; } = "";
     public List<string> Images { get; set; } = [];
+
+    // Public URL of one of this mod's images (the thumbnail or a photo), served by the endpoint in Program.cs.
+    public string ImageUrl(string fileName) => $"mods/{Id}/images/{fileName}";
 }

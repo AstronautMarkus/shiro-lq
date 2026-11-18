@@ -29,7 +29,7 @@ else
                 @foreach (var mod in mods)
                 {
                     <tr>
-                        <td><img class="table-thumb" src="images/@mod.Thumbnail" alt="" /></td>
+                        <td><img class="table-thumb" src="@mod.ImageUrl(mod.Thumbnail)" alt="" /></td>
                         <td><a href="admin/mods/@mod.Id">@mod.Name</a></td>
                         <td>@mod.Type.Label()</td>
                         <td class="actions">

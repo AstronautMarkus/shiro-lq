@@ -44,7 +44,7 @@
             @foreach (var mod in mods.Take(4))
             {
                 <div class="mod-mini">
-                    <a class="thumb" href="mods/@mod.Id"><img src="images/@mod.Thumbnail" alt="" /></a>
+                    <a class="thumb" href="mods/@mod.Id"><img src="@mod.ImageUrl(mod.Thumbnail)" alt="" /></a>
                     <div>
                         <p class="eyebrow">@mod.Type.Label()</p>
                         <a class="card-title" href="mods/@mod.Id">@mod.Name</a>

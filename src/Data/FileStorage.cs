@@ -4,12 +4,14 @@ using Microsoft.Net.Http.Headers;
 
 namespace shiro_lq.Data;
 
-// Where uploaded files live. Keys look like "mods/{name}" or "images/{name}".
+// Where uploaded files live. Keys are paths like "mods/{id}/images/{name}" (see ModStore).
 // Picked at startup with Storage:Provider (see Program.cs).
 public interface IFileStorage
 {
     Task SaveAsync(string key, Stream content, long length);
     Task DeleteAsync(string key);
+    // Deletes every file whose key starts with "{folder}/".
+    Task DeleteFolderAsync(string folder);
     // Sends the file to the browser; with downloadName it comes as an attachment with that name.
     IResult Serve(string key, string contentType, string? downloadName = null);
 }
@@ -31,6 +33,13 @@ public class LocalFileStorage(string root) : IFileStorage
         return Task.CompletedTask;
     }
 
+    public Task DeleteFolderAsync(string folder)
+    {
+        var path = Path.Combine(root, folder);
+        if (Directory.Exists(path)) Directory.Delete(path, recursive: true);
+        return Task.CompletedTask;
+    }
+
     public IResult Serve(string key, string contentType, string? downloadName = null)
     {
         var path = Path.Combine(root, key);
@@ -45,6 +54,19 @@ public class S3FileStorage(IAmazonS3 s3, string bucket) : IFileStorage
         s3.PutObjectAsync(new PutObjectRequest { BucketName = bucket, Key = key, InputStream = content, Headers = { ContentLength = length } });
 
     public Task DeleteAsync(string key) => s3.DeleteObjectAsync(bucket, key);
+
+    // S3 has no real folders: list the keys under the prefix, page by page, and delete them.
+    public async Task DeleteFolderAsync(string folder)
+    {
+        var request = new ListObjectsV2Request { BucketName = bucket, Prefix = folder + "/" };
+        ListObjectsV2Response page;
+        do
+        {
+            page = await s3.ListObjectsV2Async(request);
+            foreach (var item in page.S3Objects ?? []) await s3.DeleteObjectAsync(bucket, item.Key);
+            request.ContinuationToken = page.NextContinuationToken;
+        } while (page.IsTruncated == true);
+    }
 
     // Redirects to a short-lived signed URL: the bucket stays private and big downloads don't go through this server.
     public IResult Serve(string key, string contentType, string? downloadName = null)

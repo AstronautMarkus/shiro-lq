@@ -1,5 +1,5 @@
 @page "/admin/mods/new"
-@page "/admin/mods/{Id:int}"
+@page "/admin/mods/{Id:guid}"
 @rendermode InteractiveServer
 @inject ModStore Store
 @inject NavigationManager Nav
@@ -40,7 +40,7 @@
             </label>
             @if (!IsNew)
             {
-                <div class="preview"><img src="images/@mod.Thumbnail" alt="Miniatura actual" /></div>
+                <div class="preview"><img src="@mod.ImageUrl(mod.Thumbnail)" alt="Miniatura actual" /></div>
             }
 
             <label class="field">
@@ -52,7 +52,7 @@
                 <div class="preview">
                     @foreach (var image in mod.Images)
                     {
-                        <img src="images/@image" alt="Foto actual" />
+                        <img src="@mod.ImageUrl(image)" alt="Foto actual" />
                     }
                 </div>
             }
@@ -72,7 +72,7 @@
 @code {
     private static readonly string imageAccept = string.Join(',', ModStore.ImageExtensions);
 
-    [Parameter] public int? Id { get; set; }
+    [Parameter] public Guid? Id { get; set; }
 
     private bool IsNew => Id is null;
     private Mod? mod;

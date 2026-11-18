@@ -20,7 +20,9 @@ builder.Services.AddRazorComponents()
 string Required(string key) => builder.Configuration[key]
     ?? throw new InvalidOperationException($"Missing {key}. In dev: dotnet user-secrets set \"{key}\" \"...\" --project src");
 
-builder.Services.AddSingleton(_ => new MySqlDataSource(Required("ConnectionStrings:Default")));
+// Guid columns are BINARY(16) in standard byte order: UUIDv7 ids stay time-ordered in the index and match MySQL's BIN_TO_UUID().
+builder.Services.AddSingleton(_ => new MySqlDataSource(
+    new MySqlConnectionStringBuilder(Required("ConnectionStrings:Default")) { GuidFormat = MySqlGuidFormat.Binary16 }.ConnectionString));
 builder.Services.AddSingleton<IFileStorage>(builder.Configuration["Storage:Provider"] switch
 {
     "S3" => new S3FileStorage(
@@ -83,15 +85,15 @@ app.UseRateLimiter();
 app.UseAntiforgery();
 
 app.MapStaticAssets();
-app.MapGet("/mods/{id:int}/download", async (int id, ModStore store, IFileStorage storage) =>
+app.MapGet("/mods/{id:guid}/download", async (Guid id, ModStore store, IFileStorage storage) =>
     await store.GetAsync(id) is { } mod
-        ? storage.Serve($"{ModStore.FilesDir}/{mod.FileName}", "application/octet-stream", mod.Name + Path.GetExtension(mod.FileName))
+        ? storage.Serve(ModStore.FileKey(mod.Id, mod.FileName), "application/octet-stream", mod.Name + Path.GetExtension(mod.FileName))
         : Results.NotFound());
-// Uploaded mod images (thumbnail + photos). Only server-generated names (guid + image extension), so no path tricks reach the storage.
+// Uploaded mod images (thumbnail + photos). Only a guid id and server-generated names (guid + image extension), so no path tricks reach the storage.
 var contentTypes = new FileExtensionContentTypeProvider();
-app.MapGet("/images/{name}", (string name, IFileStorage storage) =>
+app.MapGet("/mods/{id:guid}/images/{name}", (Guid id, string name, IFileStorage storage) =>
     Guid.TryParse(Path.GetFileNameWithoutExtension(name), out _) && ModStore.IsImage(name) && contentTypes.TryGetContentType(name, out var type)
-        ? storage.Serve($"{ModStore.ImagesDir}/{name}", type)
+        ? storage.Serve(ModStore.ImageKey(id, name), type)
         : Results.NotFound());
 app.MapPost("/admin/logout", async (HttpContext context, IAntiforgery antiforgery) =>
 {

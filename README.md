@@ -123,10 +123,17 @@ Las contraseñas se guardan con hash (PBKDF2 de ASP.NET Core). El login acepta 1
 
 ## Archivos subidos
 
-Con cualquiera de los dos proveedores se usan las mismas rutas (en S3 son prefijos del bucket, en Local carpetas dentro de `uploads/`):
+Cada mod tiene un id UUIDv7 (por ejemplo `/mods/01a1eb1c-7089-744b-8b8b-5af54febaecf`), guardado en MySQL como `BINARY(16)`. Para verlo legible en una consulta: `SELECT BIN_TO_UUID(id), name FROM mods;`.
 
-- `mods/`: archivos de los mods. Solo se pueden bajar desde `/mods/{id}/download`.
-- `images/`: miniaturas y fotos, servidas públicamente en `/images/{nombre}`.
+Todo lo de un mod va en su propia carpeta, con las mismas rutas en los dos proveedores (en S3 son prefijos del bucket, en Local carpetas dentro de `uploads/`):
+
+```
+mods/{id}/
+  files/    el archivo del mod. Solo se baja desde /mods/{id}/download
+  images/   miniatura y fotos, servidas públicamente en /mods/{id}/images/{nombre}
+```
+
+Al eliminar un mod desde el panel se borra su carpeta completa.
 
 Con Local, `uploads/` no está en git. Si se borra, los mods quedan en la base de datos pero sin archivos, así que al publicar hay que conservarla entre despliegues. Con S3 pasa lo mismo si se vacía el bucket.
 

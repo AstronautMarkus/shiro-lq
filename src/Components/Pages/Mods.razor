@@ -14,7 +14,7 @@
 @foreach (var mod in mods)
 {
     <article class="card mod-row">
-        <a class="thumb" href="mods/@mod.Id"><img src="images/@mod.Thumbnail" alt="" /></a>
+        <a class="thumb" href="mods/@mod.Id"><img src="@mod.ImageUrl(mod.Thumbnail)" alt="" /></a>
         <div>
             <p class="eyebrow">@mod.Type.Label()</p>
             <h2 class="card-title"><a href="mods/@mod.Id">@mod.Name</a></h2>
