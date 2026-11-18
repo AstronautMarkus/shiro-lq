@@ -13,6 +13,12 @@
     <link rel="stylesheet" href="@Assets["shiro-lq.styles.css"]" />
     <ImportMap />
     <link rel="icon" type="image/png" href="favicon.png" />
+    @* In <head> so it's listening before any <img> exists: images keep their skeleton shimmer (CSS: img:not(.loaded))
+       until they load or fail. load/error don't bubble, hence the capture listener on document. *@
+    <script>
+        for (const type of ["load", "error"])
+            document.addEventListener(type, e => e.target instanceof HTMLImageElement && e.target.classList.add("loaded"), true);
+    </script>
     <HeadOutlet />
 </head>
 

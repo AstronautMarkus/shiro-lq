@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace shiro_lq.Models;
 
@@ -18,7 +19,10 @@ public class Admin
 
     // Form input only, never stored: AdminStore saves PasswordHash. Empty on edit keeps the current password.
     [StringLength(100, MinimumLength = 8, ErrorMessage = "Entre 8 y 100 caracteres.")]
+    [JsonIgnore]
     public string? Password { get; set; }
 
+    // Never serialized: admin lists are persisted into the page between prerendering and interactivity.
+    [JsonIgnore]
     public string PasswordHash { get; set; } = "";
 }

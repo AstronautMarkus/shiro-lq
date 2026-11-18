@@ -532,16 +532,6 @@ h1, h2, h3 {
     margin-bottom: 20px;
 }
 
-    .shot .tag {
-        position: absolute;
-        top: 14px;
-        left: 14px;
-        padding: 4px 12px;
-        font-size: 13px;
-        text-transform: uppercase;
-        background: rgba(0, 0, 0, .8);
-    }
-
 /* ---------- Forms ---------- */
 
 input:not([type=file]), textarea, select {
@@ -683,3 +673,75 @@ h1:focus {
         right: 0.75rem;
         top: 0.5rem;
     }
+
+/* ---------- Long texts ---------- */
+
+/* Names or descriptions with very long words wrap instead of widening the layout. */
+.card-title, .clamp, .description, .page-head h1, .crumbs {
+    overflow-wrap: anywhere;
+}
+
+.mod-row > div, .mod-mini > div {
+    min-width: 0;
+}
+
+.private-note {
+    margin: 0 0 16px;
+    padding: 10px 14px;
+    color: #f3d36b;
+    background: rgba(255, 196, 0, .08);
+    border: 1px solid #806a1d;
+}
+
+/* ---------- Skeletons ---------- */
+
+/* Shapes shown while data streams in (Home, Mods) and behind images until they load
+   (App.razor's script adds .loaded on load or error). */
+.skeleton, .thumb img:not(.loaded) {
+    background: linear-gradient(90deg, #1b212d 25%, #283041 50%, #1b212d 75%) 0 0 / 200% 100%;
+    animation: shimmer 1.4s linear infinite;
+}
+
+    .thumb.skeleton::before {
+        content: none;
+    }
+
+.skeleton-line {
+    display: block;
+    height: 12px;
+    margin: 8px 0;
+    border-radius: 3px;
+}
+
+.skeleton-title {
+    height: 20px;
+}
+
+.skeleton-btn {
+    display: block;
+    grid-column: 1 / -1;
+    height: 36px;
+    border-radius: 3px;
+}
+
+@keyframes shimmer {
+    to {
+        background-position: -200% 0;
+    }
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .skeleton, .thumb img:not(.loaded) {
+        animation: none;
+    }
+}

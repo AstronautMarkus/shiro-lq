@@ -1,4 +1,5 @@
 ﻿@page "/"
+@attribute [StreamRendering]
 @inject ModStore Store
 
 <PageTitle>ShiroLQ - Inicio</PageTitle>
@@ -36,12 +37,30 @@
 <section class="box">
     <h2>Mods recién salidos del horno <a href="mods">Todas las descargas &rsaquo;</a></h2>
     <div class="box-body">
-        @if (mods.Count == 0)
+        @if (mods is null)
+        {
+            @* Streamed first: shown while the mods load. *@
+            <div class="grid grid-2" aria-busy="true">
+                <span class="sr-only">Cargando mods...</span>
+                @for (var i = 0; i < 2; i++)
+                {
+                    <div class="mod-mini" aria-hidden="true">
+                        <div class="thumb skeleton"></div>
+                        <div>
+                            <span class="skeleton skeleton-line" style="width: 50px"></span>
+                            <span class="skeleton skeleton-line skeleton-title"></span>
+                        </div>
+                        <span class="skeleton skeleton-btn"></span>
+                    </div>
+                }
+            </div>
+        }
+        else if (mods.Count == 0)
         {
             <p class="muted">Aún no hay mods.</p>
         }
         <div class="grid grid-2">
-            @foreach (var mod in mods.Take(4))
+            @foreach (var mod in mods?.Take(4) ?? [])
             {
                 <div class="mod-mini">
                     <a class="thumb" href="mods/@mod.Id"><img src="@mod.ImageUrl(mod.Thumbnail)" alt="" /></a>
@@ -66,7 +85,7 @@
 </section>
 
 @code {
-    private List<Mod> mods = [];
+    private List<Mod>? mods;
 
-    protected override async Task OnInitializedAsync() => mods = await Store.GetAllAsync();
+    protected override async Task OnInitializedAsync() => mods = await Store.GetAllAsync(includePrivate: false);
 }

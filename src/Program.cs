@@ -63,9 +63,9 @@ builder.Services.AddRateLimiter(options =>
 
 var app = builder.Build();
 
-await app.Services.GetRequiredService<ModStore>().EnsureTablesAsync();
 var admins = app.Services.GetRequiredService<AdminStore>();
 await admins.EnsureTableAsync();
+await app.Services.GetRequiredService<ModStore>().EnsureTablesAsync(); // after admins: mods.author_id points there
 // First run only: the first admin comes from config like the other secrets. After that, admins are managed in /admin/admins.
 if (!await admins.AnyAsync())
     await admins.SaveAsync(new() { Name = Required("Admin:Name"), Username = Required("Admin:Username"), Email = Required("Admin:Email"), Password = Required("Admin:Password") });
@@ -85,14 +85,16 @@ app.UseRateLimiter();
 app.UseAntiforgery();
 
 app.MapStaticAssets();
-app.MapGet("/mods/{id:guid}/download", async (Guid id, ModStore store, IFileStorage storage) =>
-    await store.GetAsync(id) is { } mod
+// Private mods: only logged-in accounts get their file and images; everyone else gets the same 404 as a missing mod.
+app.MapGet("/mods/{id:guid}/download", async (Guid id, ClaimsPrincipal user, ModStore store, IFileStorage storage) =>
+    await store.GetAsync(id) is { } mod && (mod.IsPublic || user.Identity?.IsAuthenticated == true)
         ? storage.Serve(ModStore.FileKey(mod.Id, mod.FileName), "application/octet-stream", mod.Name + Path.GetExtension(mod.FileName))
         : Results.NotFound());
 // Uploaded mod images (thumbnail + photos). Only a guid id and server-generated names (guid + image extension), so no path tricks reach the storage.
 var contentTypes = new FileExtensionContentTypeProvider();
-app.MapGet("/mods/{id:guid}/images/{name}", (Guid id, string name, IFileStorage storage) =>
+app.MapGet("/mods/{id:guid}/images/{name}", async (Guid id, string name, ClaimsPrincipal user, ModStore store, IFileStorage storage) =>
     Guid.TryParse(Path.GetFileNameWithoutExtension(name), out _) && ModStore.IsImage(name) && contentTypes.TryGetContentType(name, out var type)
+        && (user.Identity?.IsAuthenticated == true || await store.IsPublicAsync(id))
         ? storage.Serve(ModStore.ImageKey(id, name), type)
         : Results.NotFound());
 app.MapPost("/admin/logout", async (HttpContext context, IAntiforgery antiforgery) =>

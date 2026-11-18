@@ -37,6 +37,24 @@ public class Mod
     public string Thumbnail { get; set; } = "";
     public List<string> Images { get; set; } = [];
 
+    // Who published it. Null when that account was deleted: the mod stays (ON DELETE SET NULL).
+    public int? AuthorId { get; set; }
+    public string? AuthorName { get; set; }
+
+    // Private mods are only seen by logged-in accounts: hidden from the public lists, 404 for everyone else.
+    public bool IsPublic { get; set; } = true;
+
     // Public URL of one of this mod's images (the thumbnail or a photo), served by the endpoint in Program.cs.
     public string ImageUrl(string fileName) => $"mods/{Id}/images/{fileName}";
+
+    // The description for cards: on one line and cut at a word with "…" so long texts can't break the layout.
+    public string Summary(int maxLength = 140)
+    {
+        var text = string.Join(' ', Description.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        if (text.Length <= maxLength) return text;
+        var cut = text.LastIndexOf(' ', maxLength);
+        if (cut < maxLength / 2) cut = maxLength; // one huge word: cut inside it
+        if (char.IsHighSurrogate(text[cut - 1])) cut--; // don't split an emoji in half
+        return text[..cut].TrimEnd(' ', ',', '.', ';', ':') + "…";
+    }
 }

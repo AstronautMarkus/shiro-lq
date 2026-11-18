@@ -55,20 +55,21 @@ public class AdminStore(MySqlDataSource db)
     }
 
     // Insert when Id is 0, update otherwise. False when the username or email already belongs to another admin.
+    // An empty Password keeps the current one, so the hash never has to travel through the UI.
     public async Task<bool> SaveAsync(Admin admin)
     {
-        if (!string.IsNullOrEmpty(admin.Password)) admin.PasswordHash = Hasher.HashPassword(admin, admin.Password);
-        if (admin.PasswordHash == "") throw new ArgumentException("A new admin needs a password.");
+        string? hash = string.IsNullOrEmpty(admin.Password) ? null : Hasher.HashPassword(admin, admin.Password);
+        if (admin.Id == 0 && hash is null) throw new ArgumentException("A new admin needs a password.");
 
         await using var conn = await db.OpenConnectionAsync();
         await using var cmd = new MySqlCommand(admin.Id == 0
             ? "INSERT INTO admins (name, username, email, password_hash) VALUES (@name, @username, @email, @hash)"
-            : "UPDATE admins SET name = @name, username = @username, email = @email, password_hash = @hash WHERE id = @id", conn);
+            : "UPDATE admins SET name = @name, username = @username, email = @email, password_hash = COALESCE(@hash, password_hash) WHERE id = @id", conn);
         cmd.Parameters.AddWithValue("@id", admin.Id);
         cmd.Parameters.AddWithValue("@name", admin.Name);
         cmd.Parameters.AddWithValue("@username", admin.Username);
         cmd.Parameters.AddWithValue("@email", admin.Email);
-        cmd.Parameters.AddWithValue("@hash", admin.PasswordHash);
+        cmd.Parameters.AddWithValue("@hash", hash);
         try
         {
             await cmd.ExecuteNonQueryAsync();

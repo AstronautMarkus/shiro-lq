@@ -1,4 +1,5 @@
 @page "/mods"
+@attribute [StreamRendering]
 @inject ModStore Store
 
 <PageTitle>ShiroLQ - Mods</PageTitle>
@@ -9,23 +10,46 @@
     <p>Los skins, mapas y objetos que ves en mis videos. Todo en un solo lugar.</p>
 </div>
 
-<p class="meta">@mods.Count @(mods.Count == 1 ? "archivo" : "archivos")</p>
-
-@foreach (var mod in mods)
+@if (mods is null)
 {
-    <article class="card mod-row">
-        <a class="thumb" href="mods/@mod.Id"><img src="@mod.ImageUrl(mod.Thumbnail)" alt="" /></a>
-        <div>
-            <p class="eyebrow">@mod.Type.Label()</p>
-            <h2 class="card-title"><a href="mods/@mod.Id">@mod.Name</a></h2>
-            <p class="clamp">@mod.Description</p>
-            <a class="btn" href="mods/@mod.Id">Ver mod &rsaquo;</a>
-        </div>
-    </article>
+    @* Streamed first: the page shows this while the list loads. *@
+    <div aria-busy="true">
+        <span class="sr-only">Cargando mods...</span>
+        <p class="meta"><span class="skeleton skeleton-line" style="width: 80px"></span></p>
+        @for (var i = 0; i < 3; i++)
+        {
+            <div class="card mod-row" aria-hidden="true">
+                <div class="thumb skeleton"></div>
+                <div>
+                    <span class="skeleton skeleton-line" style="width: 60px"></span>
+                    <span class="skeleton skeleton-line skeleton-title" style="width: 55%"></span>
+                    <span class="skeleton skeleton-line"></span>
+                    <span class="skeleton skeleton-line" style="width: 80%"></span>
+                </div>
+            </div>
+        }
+    </div>
+}
+else
+{
+    <p class="meta">@mods.Count @(mods.Count == 1 ? "archivo" : "archivos")</p>
+
+    @foreach (var mod in mods)
+    {
+        <article class="card mod-row">
+            <a class="thumb" href="mods/@mod.Id"><img src="@mod.ImageUrl(mod.Thumbnail)" alt="" /></a>
+            <div>
+                <p class="eyebrow">@mod.Type.Label()</p>
+                <h2 class="card-title"><a href="mods/@mod.Id">@mod.Name</a></h2>
+                <p class="clamp">@mod.Summary()</p>
+                <a class="btn" href="mods/@mod.Id">Ver mod &rsaquo;</a>
+            </div>
+        </article>
+    }
 }
 
 @code {
-    private List<Mod> mods = [];
+    private List<Mod>? mods;
 
-    protected override async Task OnInitializedAsync() => mods = await Store.GetAllAsync();
+    protected override async Task OnInitializedAsync() => mods = await Store.GetAllAsync(includePrivate: false);
 }

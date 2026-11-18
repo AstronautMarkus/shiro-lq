@@ -13,7 +13,11 @@ public class ModStore(MySqlDataSource db, IFileStorage storage)
     // No SVG: images are served inline, and an SVG can carry scripts.
     public static readonly string[] ImageExtensions = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
 
-    private const string Columns = "id, name, description, type, file_name, thumbnail";
+    // The author's name comes from admins; LEFT JOIN because the author may be gone.
+    private const string Select = """
+        SELECT m.id, m.name, m.description, m.type, m.file_name, m.thumbnail, m.author_id, a.name, m.is_public
+        FROM mods m LEFT JOIN admins a ON a.id = m.author_id
+        """;
 
     // Each mod keeps everything under its own folder: mods/{id}/files/ (only reachable through the download endpoint)
     // and mods/{id}/images/ (thumbnail + photos, served publicly). Deleting a mod deletes the whole folder.
@@ -23,17 +27,21 @@ public class ModStore(MySqlDataSource db, IFileStorage storage)
 
     public static bool IsImage(string fileName) => ImageExtensions.Contains(Path.GetExtension(fileName), StringComparer.OrdinalIgnoreCase);
 
+    // Needs the admins table first (author_id points at it).
     public async Task EnsureTablesAsync()
     {
         await using var conn = await db.OpenConnectionAsync();
-        await using var cmd = new MySqlCommand("""
+        await using (var cmd = new MySqlCommand("""
             CREATE TABLE IF NOT EXISTS mods (
                 id BINARY(16) PRIMARY KEY,
                 name VARCHAR(100) NOT NULL,
                 description TEXT NOT NULL,
                 type VARCHAR(20) NOT NULL,
                 file_name VARCHAR(255) NOT NULL,
-                thumbnail VARCHAR(255) NOT NULL
+                thumbnail VARCHAR(255) NOT NULL,
+                author_id INT NULL,
+                is_public BOOLEAN NOT NULL DEFAULT TRUE,
+                FOREIGN KEY (author_id) REFERENCES admins(id) ON DELETE SET NULL
             );
             CREATE TABLE IF NOT EXISTS mod_images (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -41,15 +49,31 @@ public class ModStore(MySqlDataSource db, IFileStorage storage)
                 file_name VARCHAR(255) NOT NULL,
                 FOREIGN KEY (mod_id) REFERENCES mods(id) ON DELETE CASCADE
             );
+            """, conn))
+            await cmd.ExecuteNonQueryAsync();
+
+        // Tables created before author/visibility existed get those columns here (existing mods: no author, public).
+        // shortcut: one hand-written upgrade, move to a migrations tool (DbUp, EF migrations) when the schema keeps changing.
+        await using (var check = new MySqlCommand(
+            "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'mods' AND COLUMN_NAME = 'author_id'", conn))
+        {
+            if (Convert.ToInt32(await check.ExecuteScalarAsync()) > 0) return;
+        }
+        await using var upgrade = new MySqlCommand("""
+            ALTER TABLE mods
+                ADD COLUMN author_id INT NULL,
+                ADD COLUMN is_public BOOLEAN NOT NULL DEFAULT TRUE,
+                ADD FOREIGN KEY (author_id) REFERENCES admins(id) ON DELETE SET NULL;
             """, conn);
-        await cmd.ExecuteNonQueryAsync();
+        await upgrade.ExecuteNonQueryAsync();
     }
 
     // Without Images: the list only needs the thumbnail. UUIDv7 ids sort by creation time, so this is newest first.
-    public async Task<List<Mod>> GetAllAsync()
+    // The public site passes includePrivate: false; the admin panel lists everything.
+    public async Task<List<Mod>> GetAllAsync(bool includePrivate)
     {
         await using var conn = await db.OpenConnectionAsync();
-        await using var cmd = new MySqlCommand($"SELECT {Columns} FROM mods ORDER BY id DESC", conn);
+        await using var cmd = new MySqlCommand($"{Select} {(includePrivate ? "" : "WHERE m.is_public")} ORDER BY m.id DESC", conn);
         await using var reader = await cmd.ExecuteReaderAsync();
         var mods = new List<Mod>();
         while (await reader.ReadAsync()) mods.Add(Read(reader));
@@ -60,7 +84,7 @@ public class ModStore(MySqlDataSource db, IFileStorage storage)
     {
         await using var conn = await db.OpenConnectionAsync();
         Mod mod;
-        await using (var cmd = new MySqlCommand($"SELECT {Columns} FROM mods WHERE id = @id", conn))
+        await using (var cmd = new MySqlCommand($"{Select} WHERE m.id = @id", conn))
         {
             cmd.Parameters.AddWithValue("@id", id);
             await using var reader = await cmd.ExecuteReaderAsync();
@@ -75,7 +99,16 @@ public class ModStore(MySqlDataSource db, IFileStorage storage)
         return mod;
     }
 
-    // Insert when mod.Id is empty (it gets a new UUIDv7), update otherwise. Uploads the new files first, then saves the rows in one transaction.
+    // False when the mod doesn't exist or is private. Cheap check for the file and image endpoints.
+    public async Task<bool> IsPublicAsync(Guid id)
+    {
+        await using var conn = await db.OpenConnectionAsync();
+        await using var cmd = new MySqlCommand("SELECT is_public FROM mods WHERE id = @id", conn);
+        cmd.Parameters.AddWithValue("@id", id);
+        return Convert.ToBoolean(await cmd.ExecuteScalarAsync() ?? false);
+    }
+
+    // Insert when mod.Id is empty (it gets a new UUIDv7), update otherwise. On insert mod.AuthorId is the publisher; an update keeps the author. Uploads the new files first, then saves the rows in one transaction.
     // mod.Images are the current photos to keep (none on insert) and newImages go after them; a null file or thumbnail keeps the current one.
     // mod only changes after the commit, so a failed or cancelled save leaves it as it was and can be retried.
     // progress gets the total bytes uploaded so far.
@@ -117,8 +150,8 @@ public class ModStore(MySqlDataSource db, IFileStorage storage)
             await using var conn = await db.OpenConnectionAsync();
             await using var tx = await conn.BeginTransactionAsync();
             await using (var cmd = new MySqlCommand(old is null
-                ? "INSERT INTO mods (id, name, description, type, file_name, thumbnail) VALUES (@id, @name, @description, @type, @fileName, @thumbnail)"
-                : "UPDATE mods SET name = @name, description = @description, type = @type, file_name = @fileName, thumbnail = @thumbnail WHERE id = @id", conn, tx))
+                ? "INSERT INTO mods (id, name, description, type, file_name, thumbnail, author_id, is_public) VALUES (@id, @name, @description, @type, @fileName, @thumbnail, @authorId, @isPublic)"
+                : "UPDATE mods SET name = @name, description = @description, type = @type, file_name = @fileName, thumbnail = @thumbnail, is_public = @isPublic WHERE id = @id", conn, tx))
             {
                 cmd.Parameters.AddWithValue("@id", id);
                 cmd.Parameters.AddWithValue("@name", mod.Name);
@@ -126,6 +159,8 @@ public class ModStore(MySqlDataSource db, IFileStorage storage)
                 cmd.Parameters.AddWithValue("@type", mod.Type.ToString());
                 cmd.Parameters.AddWithValue("@fileName", fileName);
                 cmd.Parameters.AddWithValue("@thumbnail", thumbnailName);
+                cmd.Parameters.AddWithValue("@authorId", mod.AuthorId);
+                cmd.Parameters.AddWithValue("@isPublic", mod.IsPublic);
                 await cmd.ExecuteNonQueryAsync();
             }
             await using (var cmd = new MySqlCommand("DELETE FROM mod_images WHERE mod_id = @modId", conn, tx))
@@ -180,6 +215,9 @@ public class ModStore(MySqlDataSource db, IFileStorage storage)
         Type = Enum.Parse<ModType>(r.GetString(3)),
         FileName = r.GetString(4),
         Thumbnail = r.GetString(5),
+        AuthorId = r.IsDBNull(6) ? null : r.GetInt32(6),
+        AuthorName = r.IsDBNull(7) ? null : r.GetString(7),
+        IsPublic = r.GetBoolean(8),
     };
 
     // Read-only pass-through that reports how many bytes each read returned (upload progress).

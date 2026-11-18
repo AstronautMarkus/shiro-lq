@@ -11,11 +11,15 @@
     <div class="page-head">
         <p class="crumbs"><a href="">Inicio</a> / <a href="mods">Mods y descargas</a> / @mod.Name</p>
         <h1>@mod.Name</h1>
-        <p class="eyebrow">@mod.Type.Label()</p>
+        <p class="eyebrow">@mod.Type.Label()@(mod.AuthorName is null ? "" : " · Publicado por " + mod.AuthorName)</p>
     </div>
 
+    @if (!mod.IsPublic)
+    {
+        <p class="private-note">Mod privado: solo lo ves porque iniciaste sesión. No aparece en el sitio.</p>
+    }
+
     <div class="thumb shot">
-        <span class="tag">Captura dentro del juego</span>
         <img src="@mod.ImageUrl(mod.Thumbnail)" alt="Miniatura de @mod.Name" />
     </div>
 
@@ -54,12 +58,16 @@
 
 @code {
     [Parameter] public Guid Id { get; set; }
+    [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = default!;
 
     private Mod? mod;
 
+    // No [StreamRendering] here: a missing or private mod has to answer with a real 404, which needs the response not started yet.
     protected override async Task OnParametersSetAsync()
     {
         mod = await Store.GetAsync(Id);
+        // Private mods: same 404 as a missing one, except for logged-in accounts.
+        if (mod is { IsPublic: false } && (await AuthState).User.Identity?.IsAuthenticated != true) mod = null;
         if (mod is null) Nav.NotFound();
     }
 }

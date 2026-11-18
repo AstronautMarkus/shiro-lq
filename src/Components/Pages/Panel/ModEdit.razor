@@ -1,6 +1,7 @@
 @page "/admin/mods/new"
 @page "/admin/mods/{Id:guid}"
 @rendermode InteractiveServer
+@attribute [StreamRendering]
 @implements IAsyncDisposable
 @inject ModStore Store
 @inject NavigationManager Nav
@@ -9,7 +10,24 @@
 
 <PageTitle>Admin - @(IsNew ? "Nuevo mod" : "Editar mod")</PageTitle>
 
-@if (mod is not null)
+@if (mod is null)
+{
+    @* Streamed while prerendering loads the mod. *@
+    <div aria-busy="true">
+        <span class="sr-only">Cargando mod...</span>
+        <div class="admin-head"><div><span class="skeleton skeleton-line" style="width: 140px"></span><span class="skeleton skeleton-line skeleton-title" style="width: 200px"></span></div></div>
+        <div class="editor" aria-hidden="true">
+            <div class="editor-main">
+                @foreach (var height in new[] { 330, 150, 200 })
+                {
+                    <div class="panel"><span class="skeleton skeleton-line" style="width: 120px"></span><span class="skeleton skeleton-block" style="height: @(height)px"></span></div>
+                }
+            </div>
+            <div class="editor-side"><div class="panel"><span class="skeleton skeleton-line" style="width: 100px"></span><span class="skeleton skeleton-block" style="height: 120px"></span></div></div>
+        </div>
+    </div>
+}
+else
 {
     <div class="admin-head">
         <div>
@@ -76,8 +94,12 @@
             <section class="panel">
                 <h2 class="panel-title">Miniatura</h2>
                 <div class="thumb-picker">
-                    <div class="thumb-box">
-                        @if (ThumbnailSrc is not null)
+                    <div class="thumb-box @(thumbnailLoading ? "skeleton" : "")">
+                        @if (thumbnailLoading)
+                        {
+                            <span class="sr-only">Generando vista previa...</span>
+                        }
+                        else if (ThumbnailSrc is not null)
                         {
                             <img src="@ThumbnailSrc" alt="Miniatura" />
                         }
@@ -112,8 +134,12 @@
                     }
                     @foreach (var photo in newPhotos)
                     {
-                        <figure class="photo is-new">
-                            @if (photo.Preview is not null)
+                        <figure class="photo is-new @(photo.Loading ? "skeleton" : "")">
+                            @if (photo.Loading)
+                            {
+                                <span class="sr-only">Generando vista previa de @photo.File.Name...</span>
+                            }
+                            else if (photo.Preview is not null)
                             {
                                 <img src="@photo.Preview" alt="Foto nueva: @photo.File.Name" />
                             }
@@ -153,10 +179,27 @@
 
         <aside class="editor-side">
             <section class="panel">
+                <h2 class="panel-title">Visibilidad</h2>
+                <InputRadioGroup @bind-Value="mod.IsPublic" Name="visibility">
+                    <div class="choices">
+                        <label class="choice">
+                            <InputRadio Value="true" disabled="@saving" />
+                            <span><strong>Público</strong><span class="hint">Aparece en el sitio y cualquiera lo descarga.</span></span>
+                        </label>
+                        <label class="choice">
+                            <InputRadio Value="false" disabled="@saving" />
+                            <span><strong>Privado</strong><span class="hint">Solo lo ven las cuentas con sesión iniciada.</span></span>
+                        </label>
+                    </div>
+                </InputRadioGroup>
+                <p class="hint author">Autor: <strong>@(IsNew ? "tú" : mod.AuthorName ?? "cuenta eliminada")</strong></p>
+            </section>
+
+            <section class="panel">
                 <h2 class="panel-title">Vista previa</h2>
-                <p class="hint">Así se verá en la lista de mods del sitio.</p>
-                <article class="site-preview">
-                    <div class="sp-thumb">
+                <p class="hint">@(mod.IsPublic ? "Así se verá en la lista de mods del sitio." : "Privado: así se vería si lo haces público.")</p>
+                <article class="site-preview @(mod.IsPublic ? "" : "is-private")">
+                    <div class="sp-thumb @(thumbnailLoading ? "skeleton" : "")">
                         @if (ThumbnailSrc is not null)
                         {
                             <img src="@ThumbnailSrc" alt="" />
@@ -165,7 +208,7 @@
                     <div class="sp-body">
                         <p class="sp-eyebrow">@mod.Type.Label()</p>
                         <p class="sp-title">@(string.IsNullOrWhiteSpace(mod.Name) ? "Nombre del mod" : mod.Name)</p>
-                        <p class="sp-text">@(string.IsNullOrWhiteSpace(mod.Description) ? "Aquí va la descripción del mod." : mod.Description)</p>
+                        <p class="sp-text">@(string.IsNullOrWhiteSpace(mod.Description) ? "Aquí va la descripción del mod." : mod.Summary())</p>
                         <span class="sp-btn">Ver mod &rsaquo;</span>
                     </div>
                 </article>
@@ -175,7 +218,7 @@
                     <div class="sp-photos">
                         @foreach (var src in mod.Images.Select(mod.ImageUrl).Concat(newPhotos.Select(p => p.Preview)).Take(6))
                         {
-                            <div>@if (src is not null) { <img src="@src" alt="" /> }</div>
+                            <div class="@(src is null ? "skeleton" : "")">@if (src is not null) { <img src="@src" alt="" /> }</div>
                         }
                     </div>
                 }
@@ -197,7 +240,7 @@
             {
                 <span class="savebar-status @(IsDirty ? "is-dirty" : "")">@(IsDirty ? "Cambios sin guardar" : "Sin cambios")</span>
                 <a class="btn" href="admin">Cancelar</a>
-                <button class="btn btn-primary" type="submit" disabled="@(!IsDirty)">@(IsNew ? "Publicar mod" : "Guardar cambios")</button>
+                <button class="btn btn-primary" type="submit" disabled="@(!IsDirty)">@(!IsNew ? "Guardar cambios" : mod.IsPublic ? "Publicar mod" : "Guardar como privado")</button>
             }
         </div>
     </EditForm>
@@ -209,6 +252,9 @@
     private static readonly string imageAccept = string.Join(',', ModStore.ImageExtensions);
 
     [Parameter] public Guid? Id { get; set; }
+    [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = default!;
+    // Public for [PersistentState]: the mod loaded while prerendering is reused when the page turns interactive.
+    [PersistentState] public Mod? Loaded { get; set; }
 
     private bool IsNew => Id is null;
     private Mod? mod;
@@ -218,7 +264,8 @@
     private IBrowserFile? file;
     private IBrowserFile? thumbnail;
     private string? thumbnailPreview;
-    private readonly List<(IBrowserFile File, string? Preview)> newPhotos = [];
+    private bool thumbnailLoading;
+    private readonly List<PickedPhoto> newPhotos = [];
     private readonly List<string> removedPhotos = [];
     // Changing an InputFile's @key gives a fresh <input>, so "Quitar" can be followed by picking the same file again.
     private int fileInput, thumbnailInput, lastPhotoInput;
@@ -238,17 +285,25 @@
     private string? ThumbnailSrc => thumbnail is not null ? thumbnailPreview : IsNew ? null : mod!.ImageUrl(mod.Thumbnail);
     private int Percent => total == 0 ? 100 : (int)(uploaded * 100 / total);
     private bool IsDirty => !done && (file is not null || thumbnail is not null || newPhotos.Count > 0 || removedPhotos.Count > 0
-        || mod!.Name != original.Name || mod.Description != original.Description || mod.Type != original.Type);
+        || mod!.Name != original.Name || mod.Description != original.Description || mod.Type != original.Type || mod.IsPublic != original.IsPublic);
 
     protected override async Task OnParametersSetAsync()
     {
-        mod = IsNew ? new() : await Store.GetAsync(Id!.Value);
-        if (mod is null)
+        if (IsNew)
         {
-            Nav.NotFound();
-            return;
+            // The publisher is whoever is logged in, never a form value.
+            mod = new() { AuthorId = int.Parse((await AuthState).User.FindFirstValue(ClaimTypes.NameIdentifier)!) };
         }
-        original = new() { Name = mod.Name, Description = mod.Description, Type = mod.Type };
+        else
+        {
+            mod = Loaded ??= await Store.GetAsync(Id!.Value);
+            if (mod is null)
+            {
+                Nav.NotFound();
+                return;
+            }
+        }
+        original = new() { Name = mod.Name, Description = mod.Description, Type = mod.Type, IsPublic = mod.IsPublic };
     }
 
     private async Task PickFile(InputFileChangeEventArgs e)
@@ -275,27 +330,43 @@
             thumbnailInput++;
             return;
         }
-        thumbnail = e.File;
-        thumbnailPreview = await PreviewAsync(e.File);
+        var picked = thumbnail = e.File;
+        thumbnailPreview = null;
+        thumbnailLoading = true;
+        StateHasChanged(); // skeleton while the preview is made
+        var preview = await PreviewAsync(picked);
+        if (thumbnail != picked) return; // another image was picked meanwhile
+        thumbnailPreview = preview;
+        thumbnailLoading = false;
     }
 
     private void ResetThumbnail()
     {
         thumbnail = null;
         thumbnailPreview = null;
+        thumbnailLoading = false;
         thumbnailInput++;
     }
 
     private async Task AddPhotos(InputFileChangeEventArgs e)
     {
         photoInputs.Add(++lastPhotoInput);
+        var added = new List<PickedPhoto>();
         var skipped = 0;
-        foreach (var photo in e.GetMultipleFiles(int.MaxValue))
+        foreach (var file in e.GetMultipleFiles(int.MaxValue))
         {
             if (PhotoCount >= ModStore.MaxImages) skipped++;
-            else if (await CheckImage(photo) is null) newPhotos.Add((photo, await PreviewAsync(photo)));
+            else if (await CheckImage(file) is null) added.Add(new(file));
         }
+        newPhotos.AddRange(added);
         if (skipped > 0) await Toast($"Máximo {ModStore.MaxImages} fotos: {skipped} no se agregaron.", "error");
+        StateHasChanged(); // skeleton tiles right away, then each preview as it's ready
+        foreach (var photo in added)
+        {
+            photo.Preview = await PreviewAsync(photo.File);
+            photo.Loading = false;
+            StateHasChanged();
+        }
     }
 
     private void RemoveCurrent(string name)
@@ -357,7 +428,7 @@
         }
 
         done = true; // no longer dirty: nothing to confirm on the way out
-        await Toast(wasNew ? $"\"{mod!.Name}\" publicado." : "Cambios guardados.");
+        await Toast(!wasNew ? "Cambios guardados." : mod!.IsPublic ? $"\"{mod.Name}\" publicado." : $"\"{mod.Name}\" guardado como privado.");
         Nav.NavigateTo("admin");
     }
 
@@ -434,4 +505,12 @@
     };
 
     private ValueTask Toast(string message, string kind = "success") => JS.InvokeVoidAsync("adminUi.toast", message, kind);
+
+    // A photo picked in this session: Loading until its preview is ready (Preview stays null if the browser can't decode it).
+    private sealed class PickedPhoto(IBrowserFile file)
+    {
+        public IBrowserFile File { get; } = file;
+        public string? Preview { get; set; }
+        public bool Loading { get; set; } = true;
+    }
 }

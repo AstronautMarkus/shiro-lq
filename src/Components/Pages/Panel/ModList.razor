@@ -1,5 +1,6 @@
 @page "/admin"
 @rendermode InteractiveServer
+@attribute [StreamRendering]
 @inject ModStore Store
 @inject IJSRuntime JS
 @inject ILogger<ModList> Log
@@ -9,19 +10,48 @@
 <div class="admin-head">
     <div>
         <h1>Mods</h1>
-        <p class="hint">@(mods is null ? "Cargando..." : $"{mods.Count} {(mods.Count == 1 ? "mod publicado" : "mods publicados")}")</p>
+        @if (Mods is null)
+        {
+            <span class="skeleton skeleton-line" style="width: 120px"></span>
+        }
+        else
+        {
+            <p class="hint">@Mods.Count @(Mods.Count == 1 ? "mod" : "mods") · @Mods.Count(m => !m.IsPublic) @(Mods.Count(m => !m.IsPublic) == 1 ? "privado" : "privados")</p>
+        }
     </div>
     <a class="btn btn-primary" href="admin/mods/new">+ Nuevo mod</a>
 </div>
 
-@if (mods is { Count: 0 })
+@if (Mods is null)
+{
+    @* Streamed while prerendering; once interactive, the list comes from [PersistentState] without loading again. *@
+    <div class="panel table-wrap" aria-busy="true">
+        <span class="sr-only">Cargando mods...</span>
+        <div class="table-tools"><span class="skeleton skeleton-input"></span></div>
+        <table class="table" aria-hidden="true">
+            <tbody>
+                @for (var i = 0; i < 4; i++)
+                {
+                    <tr>
+                        <td><span class="mod-cell"><span class="skeleton table-thumb"></span><span class="skeleton skeleton-line" style="width: 160px"></span></span></td>
+                        <td><span class="skeleton skeleton-pill"></span></td>
+                        <td><span class="skeleton skeleton-line" style="width: 70px"></span></td>
+                        <td><span class="skeleton skeleton-pill"></span></td>
+                        <td class="actions"><span class="skeleton skeleton-btn"></span><span class="skeleton skeleton-btn"></span><span class="skeleton skeleton-btn"></span></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+else if (Mods.Count == 0)
 {
     <div class="panel empty">
         <p>Todavía no hay mods.</p>
         <a class="btn btn-primary" href="admin/mods/new">Subir el primero</a>
     </div>
 }
-else if (mods is not null)
+else
 {
     <div class="panel table-wrap">
         <div class="table-tools">
@@ -29,7 +59,7 @@ else if (mods is not null)
         </div>
         <table class="table">
             <thead>
-                <tr><th>Mod</th><th>Tipo</th><th><span class="sr-only">Acciones</span></th></tr>
+                <tr><th>Mod</th><th>Tipo</th><th>Autor</th><th>Visibilidad</th><th><span class="sr-only">Acciones</span></th></tr>
             </thead>
             <tbody>
                 @foreach (var mod in Visible)
@@ -42,6 +72,8 @@ else if (mods is not null)
                             </a>
                         </td>
                         <td><span class="pill">@mod.Type.Label()</span></td>
+                        <td>@(mod.AuthorName ?? "Cuenta eliminada")</td>
+                        <td><span class="pill @(mod.IsPublic ? "pill-public" : "pill-private")">@(mod.IsPublic ? "Público" : "Privado")</span></td>
                         <td class="actions">
                             <a class="btn btn-sm" href="mods/@mod.Id" target="_blank" rel="noopener">Ver</a>
                             <a class="btn btn-sm" href="admin/mods/@mod.Id">Editar</a>
@@ -61,13 +93,15 @@ else if (mods is not null)
 <ConfirmDialog @ref="confirm" />
 
 @code {
-    private List<Mod>? mods;
+    // Public for [PersistentState]: what prerendering loaded is reused when the page turns interactive.
+    [PersistentState(AllowUpdates = true)] public List<Mod>? Mods { get; set; }
+
     private string search = "";
     private ConfirmDialog confirm = default!;
 
-    private IEnumerable<Mod> Visible => mods!.Where(m => m.Name.Contains(search.Trim(), StringComparison.CurrentCultureIgnoreCase));
+    private IEnumerable<Mod> Visible => Mods!.Where(m => m.Name.Contains(search.Trim(), StringComparison.CurrentCultureIgnoreCase));
 
-    protected override async Task OnInitializedAsync() => mods = await Store.GetAllAsync();
+    protected override async Task OnInitializedAsync() => Mods ??= await Store.GetAllAsync(includePrivate: true);
 
     private async Task Delete(Mod mod)
     {
@@ -82,7 +116,7 @@ else if (mods is not null)
             await Toast("No se pudo eliminar el mod. Inténtalo de nuevo.", "error");
             return;
         }
-        mods!.Remove(mod);
+        Mods!.Remove(mod);
         await Toast($"\"{mod.Name}\" eliminado.");
     }
 

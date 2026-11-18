@@ -1,5 +1,6 @@
 @page "/admin/admins"
 @rendermode InteractiveServer
+@attribute [StreamRendering]
 @inject AdminStore Admins
 @inject IJSRuntime JS
 
@@ -13,9 +14,25 @@
     <button class="btn btn-primary" type="button" @onclick="() => Open(null)">+ Nuevo admin</button>
 </div>
 
-@if (admins is null)
+@if (Accounts is null)
 {
-    <p class="hint">Cargando...</p>
+    @* Streamed while prerendering; once interactive, the list comes from [PersistentState] without loading again. *@
+    <div class="panel table-wrap" aria-busy="true">
+        <span class="sr-only">Cargando admins...</span>
+        <table class="table" aria-hidden="true">
+            <tbody>
+                @for (var i = 0; i < 3; i++)
+                {
+                    <tr>
+                        <td><span class="mod-cell"><span class="skeleton avatar"></span><span class="skeleton skeleton-line" style="width: 120px"></span></span></td>
+                        <td><span class="skeleton skeleton-line" style="width: 80px"></span></td>
+                        <td><span class="skeleton skeleton-line" style="width: 160px"></span></td>
+                        <td class="actions"><span class="skeleton skeleton-btn"></span><span class="skeleton skeleton-btn"></span></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
 }
 else
 {
@@ -25,7 +42,7 @@ else
                 <tr><th>Admin</th><th>Usuario</th><th>Email</th><th><span class="sr-only">Acciones</span></th></tr>
             </thead>
             <tbody>
-                @foreach (var admin in admins)
+                @foreach (var admin in Accounts)
                 {
                     <tr>
                         <td>
@@ -83,7 +100,9 @@ else
 @code {
     [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = default!;
 
-    private List<Admin>? admins;
+    // Public for [PersistentState]: what prerendering loaded is reused when the page turns interactive (no hashes: [JsonIgnore]).
+    [PersistentState(AllowUpdates = true)] public List<Admin>? Accounts { get; set; }
+
     private int currentId;
     private Modal form = default!;
     private ConfirmDialog confirm = default!;
@@ -95,12 +114,12 @@ else
     protected override async Task OnInitializedAsync()
     {
         currentId = int.Parse((await AuthState).User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        admins = await Admins.GetAllAsync();
+        Accounts ??= await Admins.GetAllAsync();
     }
 
     private void Open(Admin? admin)
     {
-        editing = admin is null ? new() : new() { Id = admin.Id, Name = admin.Name, Username = admin.Username, Email = admin.Email, PasswordHash = admin.PasswordHash };
+        editing = admin is null ? new() : new() { Id = admin.Id, Name = admin.Name, Username = admin.Username, Email = admin.Email };
         error = null;
         form.Show();
     }
@@ -123,18 +142,18 @@ else
             return;
         }
 
-        var isNew = admins!.All(a => a.Id != admin.Id);
+        var isNew = Accounts!.All(a => a.Id != admin.Id);
         await form.CloseAsync();
-        admins = await Admins.GetAllAsync();
+        Accounts = await Admins.GetAllAsync();
         await Toast(isNew ? $"{admin.Name} ya puede entrar al panel." : "Cambios guardados.");
     }
 
     private async Task Delete(Admin admin)
     {
         if (admin.Id == currentId) return;
-        if (!await confirm.AskAsync($"¿Eliminar a {admin.Name}?", $"{admin.Username} pierde el acceso al panel al instante. No se puede deshacer.", "Eliminar admin")) return;
+        if (!await confirm.AskAsync($"¿Eliminar a {admin.Name}?", $"{admin.Username} pierde el acceso al panel al instante. Sus mods se quedan publicados, sin autor. No se puede deshacer.", "Eliminar admin")) return;
         await Admins.DeleteAsync(admin.Id);
-        admins!.Remove(admin);
+        Accounts!.Remove(admin);
         await Toast($"{admin.Name} eliminado.");
     }
 
