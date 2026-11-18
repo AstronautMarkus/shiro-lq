@@ -1,0 +1,39 @@
+@* Native <dialog> opened with showModal(): the browser traps focus, closes on Esc and draws the backdrop. *@
+@inject IJSRuntime JS
+
+<dialog @ref="element" class="modal" aria-labelledby="@titleId" @onclose="OnClose">
+    <div class="modal-box">
+        <div class="modal-head">
+            <h2 id="@titleId" class="modal-title">@Title</h2>
+            <button type="button" class="icon-btn" aria-label="Cerrar" @onclick="CloseAsync">&times;</button>
+        </div>
+        @ChildContent
+    </div>
+</dialog>
+
+@code {
+    private readonly string titleId = "modal-" + Guid.NewGuid().ToString("N")[..8];
+    private ElementReference element;
+    private bool show;
+
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    // Fires however it closes: a button, Esc or a click on the backdrop.
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    // Opens after the next render, so the content is already there (and autofocus works).
+    public void Show()
+    {
+        show = true;
+        StateHasChanged();
+    }
+
+    public async Task CloseAsync() => await JS.InvokeVoidAsync("adminUi.closeModal", element);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!show) return;
+        show = false;
+        await JS.InvokeVoidAsync("adminUi.showModal", element);
+    }
+}

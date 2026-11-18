@@ -1,0 +1,37 @@
+@* Replaces the browser's confirm(): if (await confirm.AskAsync(...)) { ... } *@
+
+<Modal @ref="modal" Title="@title" OnClose="() => Finish(false)">
+    <p class="modal-text">@message</p>
+    <div class="modal-actions">
+        @* Focus starts on the safe choice. *@
+        <button type="button" class="btn" autofocus @onclick="() => Finish(false)">Cancelar</button>
+        <button type="button" class="btn @(danger ? "btn-danger-solid" : "btn-primary")" @onclick="() => Finish(true)">@confirmText</button>
+    </div>
+</Modal>
+
+@code {
+    private Modal modal = default!;
+    private TaskCompletionSource<bool>? answer;
+    private string title = "", message = "", confirmText = "";
+    private bool danger;
+
+    // True only when the confirm button is pressed; Cancelar, Esc and the backdrop give false.
+    public Task<bool> AskAsync(string title, string message, string confirmText, bool danger = true)
+    {
+        (this.title, this.message, this.confirmText, this.danger) = (title, message, confirmText, danger);
+        answer?.TrySetResult(false); // a second question replaces one still open
+        answer = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        modal.Show();
+        StateHasChanged();
+        return answer.Task;
+    }
+
+    private async Task Finish(bool confirmed)
+    {
+        if (answer is null) return; // already answered: this is the close event that follows
+        var pending = answer;
+        answer = null;
+        await modal.CloseAsync();
+        pending.SetResult(confirmed);
+    }
+}

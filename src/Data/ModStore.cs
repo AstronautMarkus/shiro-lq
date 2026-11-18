@@ -75,29 +75,44 @@ public class ModStore(MySqlDataSource db, IFileStorage storage)
         return mod;
     }
 
-    // Insert when mod.Id is empty (it gets a new UUIDv7), update otherwise. Saves the new files first, then the rows in one transaction; sets Id, FileName, Thumbnail and Images.
-    // On update, a null file or thumbnail keeps the current one, and new images replace all current ones.
-    public async Task SaveAsync(Mod mod, IBrowserFile? file, IBrowserFile? thumbnail, IReadOnlyList<IBrowserFile> images)
+    // Insert when mod.Id is empty (it gets a new UUIDv7), update otherwise. Uploads the new files first, then saves the rows in one transaction.
+    // mod.Images are the current photos to keep (none on insert) and newImages go after them; a null file or thumbnail keeps the current one.
+    // mod only changes after the commit, so a failed or cancelled save leaves it as it was and can be retried.
+    // progress gets the total bytes uploaded so far.
+    public async Task SaveAsync(Mod mod, IBrowserFile? file, IBrowserFile? thumbnail, IReadOnlyList<IBrowserFile> newImages,
+        IProgress<long>? progress = null, CancellationToken cancellationToken = default)
     {
-        if (images.Count > MaxImages) throw new ArgumentException($"At most {MaxImages} images.");
-        if ((thumbnail is not null && !IsImage(thumbnail.Name)) || !images.All(i => IsImage(i.Name))) throw new ArgumentException("Images must be " + string.Join(", ", ImageExtensions));
+        if ((thumbnail is not null && !IsImage(thumbnail.Name)) || !newImages.All(i => IsImage(i.Name))) throw new ArgumentException("Images must be " + string.Join(", ", ImageExtensions));
         var old = mod.Id == Guid.Empty ? null : await GetAsync(mod.Id) ?? throw new KeyNotFoundException($"Mod {mod.Id} not found.");
         if (old is null && (file is null || thumbnail is null)) throw new ArgumentException("A new mod needs a file and a thumbnail.");
-        var replaceImages = old is null || images.Count > 0;
-        // Known before saving anything: the files go under the mod's folder. Only set on mod after the commit.
+        List<string> images = old is null ? [] : [.. mod.Images];
+        if (images.Except(old?.Images ?? []).Any()) throw new ArgumentException("Only the mod's current images can be kept.");
+        if (images.Count + newImages.Count > MaxImages) throw new ArgumentException($"At most {MaxImages} images.");
+        // Known before uploading anything: the files go under the mod's folder.
         var id = old?.Id ?? Guid.CreateVersion7();
 
         var saved = new List<string>();
+        long uploaded = 0;
+        async Task<string> Upload(IBrowserFile upload, Func<Guid, string, string> keyFor, long maxSize)
+        {
+            // Never use the client's name in storage: only its extension is kept (GetExtension can't contain path separators).
+            var name = Guid.NewGuid() + Path.GetExtension(upload.Name);
+            var key = keyFor(id, name);
+            saved.Add(key);
+            await using var input = new ProgressStream(upload.OpenReadStream(maxSize, cancellationToken), read =>
+            {
+                uploaded += read;
+                progress?.Report(uploaded);
+            });
+            await storage.SaveAsync(key, input, upload.Size, cancellationToken);
+            return name;
+        }
+
         try
         {
-            mod.FileName = file is null ? old!.FileName : await SaveFileAsync(file, name => FileKey(id, name), MaxFileSize, saved);
-            mod.Thumbnail = thumbnail is null ? old!.Thumbnail : await SaveFileAsync(thumbnail, name => ImageKey(id, name), MaxImageSize, saved);
-            if (replaceImages)
-            {
-                mod.Images = [];
-                foreach (var image in images) mod.Images.Add(await SaveFileAsync(image, name => ImageKey(id, name), MaxImageSize, saved));
-            }
-            else mod.Images = old!.Images;
+            var fileName = file is null ? old!.FileName : await Upload(file, FileKey, MaxFileSize);
+            var thumbnailName = thumbnail is null ? old!.Thumbnail : await Upload(thumbnail, ImageKey, MaxImageSize);
+            foreach (var image in newImages) images.Add(await Upload(image, ImageKey, MaxImageSize));
 
             await using var conn = await db.OpenConnectionAsync();
             await using var tx = await conn.BeginTransactionAsync();
@@ -109,31 +124,30 @@ public class ModStore(MySqlDataSource db, IFileStorage storage)
                 cmd.Parameters.AddWithValue("@name", mod.Name);
                 cmd.Parameters.AddWithValue("@description", mod.Description);
                 cmd.Parameters.AddWithValue("@type", mod.Type.ToString());
-                cmd.Parameters.AddWithValue("@fileName", mod.FileName);
-                cmd.Parameters.AddWithValue("@thumbnail", mod.Thumbnail);
+                cmd.Parameters.AddWithValue("@fileName", fileName);
+                cmd.Parameters.AddWithValue("@thumbnail", thumbnailName);
                 await cmd.ExecuteNonQueryAsync();
             }
-            if (replaceImages)
+            await using (var cmd = new MySqlCommand("DELETE FROM mod_images WHERE mod_id = @modId", conn, tx))
             {
-                await using (var cmd = new MySqlCommand("DELETE FROM mod_images WHERE mod_id = @modId", conn, tx))
-                {
-                    cmd.Parameters.AddWithValue("@modId", id);
-                    await cmd.ExecuteNonQueryAsync();
-                }
-                foreach (var image in mod.Images)
-                {
-                    await using var cmd = new MySqlCommand("INSERT INTO mod_images (mod_id, file_name) VALUES (@modId, @fileName)", conn, tx);
-                    cmd.Parameters.AddWithValue("@modId", id);
-                    cmd.Parameters.AddWithValue("@fileName", image);
-                    await cmd.ExecuteNonQueryAsync();
-                }
+                cmd.Parameters.AddWithValue("@modId", id);
+                await cmd.ExecuteNonQueryAsync();
+            }
+            foreach (var image in images)
+            {
+                await using var cmd = new MySqlCommand("INSERT INTO mod_images (mod_id, file_name) VALUES (@modId, @fileName)", conn, tx);
+                cmd.Parameters.AddWithValue("@modId", id);
+                cmd.Parameters.AddWithValue("@fileName", image);
+                await cmd.ExecuteNonQueryAsync();
             }
             await tx.CommitAsync();
-            mod.Id = id;
+            (mod.Id, mod.FileName, mod.Thumbnail, mod.Images) = (id, fileName, thumbnailName, images);
         }
         catch
         {
-            foreach (var key in saved) await storage.DeleteAsync(key); // don't leave orphan or half-written files behind
+            // Don't leave orphan or half-written files behind (for a new mod, not even its empty folder).
+            if (old is null) await storage.DeleteFolderAsync(Folder(id));
+            else foreach (var key in saved) await storage.DeleteAsync(key);
             throw;
         }
 
@@ -158,17 +172,6 @@ public class ModStore(MySqlDataSource db, IFileStorage storage)
     private static IEnumerable<string> Keys(Mod mod) =>
         mod.Images.Append(mod.Thumbnail).Select(i => ImageKey(mod.Id, i)).Append(FileKey(mod.Id, mod.FileName));
 
-    private async Task<string> SaveFileAsync(IBrowserFile file, Func<string, string> keyFor, long maxSize, List<string> saved)
-    {
-        // Never use the client's name in storage: only its extension is kept (GetExtension can't contain path separators).
-        var name = Guid.NewGuid() + Path.GetExtension(file.Name);
-        var key = keyFor(name);
-        saved.Add(key);
-        await using var input = file.OpenReadStream(maxSize);
-        await storage.SaveAsync(key, input, file.Size);
-        return name;
-    }
-
     private static Mod Read(MySqlDataReader r) => new()
     {
         Id = r.GetGuid(0),
@@ -178,4 +181,37 @@ public class ModStore(MySqlDataSource db, IFileStorage storage)
         FileName = r.GetString(4),
         Thumbnail = r.GetString(5),
     };
+
+    // Read-only pass-through that reports how many bytes each read returned (upload progress).
+    private sealed class ProgressStream(Stream inner, Action<int> onRead) : Stream
+    {
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => inner.Length;
+        public override long Position { get => inner.Position; set => throw new NotSupportedException(); }
+
+        public override int Read(byte[] buffer, int offset, int count) => Report(inner.Read(buffer, offset, count));
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) =>
+            Report(await inner.ReadAsync(buffer, cancellationToken));
+        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) =>
+            ReadAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
+
+        public override void Flush() { }
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) inner.Dispose();
+            base.Dispose(disposing);
+        }
+
+        private int Report(int read)
+        {
+            onRead(read);
+            return read;
+        }
+    }
 }

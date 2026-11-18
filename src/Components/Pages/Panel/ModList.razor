@@ -2,36 +2,46 @@
 @rendermode InteractiveServer
 @inject ModStore Store
 @inject IJSRuntime JS
+@inject ILogger<ModList> Log
 
 <PageTitle>Admin - Mods</PageTitle>
 
 <div class="admin-head">
-    <h1>Mods</h1>
+    <div>
+        <h1>Mods</h1>
+        <p class="hint">@(mods is null ? "Cargando..." : $"{mods.Count} {(mods.Count == 1 ? "mod publicado" : "mods publicados")}")</p>
+    </div>
     <a class="btn btn-primary" href="admin/mods/new">+ Nuevo mod</a>
 </div>
 
-@if (mods is null)
+@if (mods is { Count: 0 })
 {
-    <p class="hint">Cargando...</p>
+    <div class="panel empty">
+        <p>Todavía no hay mods.</p>
+        <a class="btn btn-primary" href="admin/mods/new">Subir el primero</a>
+    </div>
 }
-else if (mods.Count == 0)
-{
-    <div class="panel empty">Todavía no hay mods. <a href="admin/mods/new">Sube el primero</a>.</div>
-}
-else
+else if (mods is not null)
 {
     <div class="panel table-wrap">
+        <div class="table-tools">
+            <input type="search" class="search" @bind="search" @bind:event="oninput" placeholder="Buscar por nombre" aria-label="Buscar mods por nombre" />
+        </div>
         <table class="table">
             <thead>
-                <tr><th>Miniatura</th><th>Nombre</th><th>Tipo</th><th></th></tr>
+                <tr><th>Mod</th><th>Tipo</th><th><span class="sr-only">Acciones</span></th></tr>
             </thead>
             <tbody>
-                @foreach (var mod in mods)
+                @foreach (var mod in Visible)
                 {
                     <tr>
-                        <td><img class="table-thumb" src="@mod.ImageUrl(mod.Thumbnail)" alt="" /></td>
-                        <td><a href="admin/mods/@mod.Id">@mod.Name</a></td>
-                        <td>@mod.Type.Label()</td>
+                        <td>
+                            <a class="mod-cell" href="admin/mods/@mod.Id">
+                                <img class="table-thumb" src="@mod.ImageUrl(mod.Thumbnail)" alt="" />
+                                <span>@mod.Name</span>
+                            </a>
+                        </td>
+                        <td><span class="pill">@mod.Type.Label()</span></td>
                         <td class="actions">
                             <a class="btn btn-sm" href="mods/@mod.Id" target="_blank" rel="noopener">Ver</a>
                             <a class="btn btn-sm" href="admin/mods/@mod.Id">Editar</a>
@@ -41,18 +51,40 @@ else
                 }
             </tbody>
         </table>
+        @if (!Visible.Any())
+        {
+            <p class="empty">Ningún mod se llama así.</p>
+        }
     </div>
 }
 
+<ConfirmDialog @ref="confirm" />
+
 @code {
     private List<Mod>? mods;
+    private string search = "";
+    private ConfirmDialog confirm = default!;
+
+    private IEnumerable<Mod> Visible => mods!.Where(m => m.Name.Contains(search.Trim(), StringComparison.CurrentCultureIgnoreCase));
 
     protected override async Task OnInitializedAsync() => mods = await Store.GetAllAsync();
 
     private async Task Delete(Mod mod)
     {
-        if (!await JS.InvokeAsync<bool>("confirm", $"¿Eliminar \"{mod.Name}\"? También se borran su archivo y sus fotos.")) return;
-        await Store.DeleteAsync(mod.Id);
+        if (!await confirm.AskAsync($"¿Eliminar \"{mod.Name}\"?", "Se borran el mod, su archivo y todas sus fotos. No se puede deshacer.", "Eliminar mod")) return;
+        try
+        {
+            await Store.DeleteAsync(mod.Id);
+        }
+        catch (Exception e)
+        {
+            Log.LogError(e, "Deleting mod {Id} failed", mod.Id);
+            await Toast("No se pudo eliminar el mod. Inténtalo de nuevo.", "error");
+            return;
+        }
         mods!.Remove(mod);
+        await Toast($"\"{mod.Name}\" eliminado.");
     }
+
+    private ValueTask Toast(string message, string kind = "success") => JS.InvokeVoidAsync("adminUi.toast", message, kind);
 }

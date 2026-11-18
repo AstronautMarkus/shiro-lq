@@ -6,8 +6,11 @@
 <PageTitle>Admin - Admins</PageTitle>
 
 <div class="admin-head">
-    <h1>Admins</h1>
-    <a class="btn btn-primary" href="admin/admins/new">+ Nuevo admin</a>
+    <div>
+        <h1>Admins</h1>
+        <p class="hint">Quienes pueden entrar a este panel.</p>
+    </div>
+    <button class="btn btn-primary" type="button" @onclick="() => Open(null)">+ Nuevo admin</button>
 </div>
 
 @if (admins is null)
@@ -19,25 +22,25 @@ else
     <div class="panel table-wrap">
         <table class="table">
             <thead>
-                <tr><th>Nombre</th><th>Usuario</th><th>Email</th><th></th></tr>
+                <tr><th>Admin</th><th>Usuario</th><th>Email</th><th><span class="sr-only">Acciones</span></th></tr>
             </thead>
             <tbody>
                 @foreach (var admin in admins)
                 {
                     <tr>
-                        <td><a href="admin/admins/@admin.Id">@admin.Name</a></td>
+                        <td>
+                            <span class="mod-cell">
+                                <span class="avatar" aria-hidden="true">@admin.Name[..1].ToUpperInvariant()</span>
+                                <span>@admin.Name @if (admin.Id == currentId) { <span class="pill">Tú</span> }</span>
+                            </span>
+                        </td>
                         <td>@admin.Username</td>
                         <td>@admin.Email</td>
                         <td class="actions">
-                            <a class="btn btn-sm" href="admin/admins/@admin.Id">Editar</a>
-                            @if (admin.Id == currentId)
-                            {
-                                <span class="hint">(tú)</span>
-                            }
-                            else
-                            {
-                                <button class="btn btn-sm btn-danger" type="button" @onclick="() => Delete(admin)">Eliminar</button>
-                            }
+                            <button class="btn btn-sm" type="button" @onclick="() => Open(admin)">Editar</button>
+                            @* Nobody deletes their own account, so there's always at least one admin left. *@
+                            <button class="btn btn-sm btn-danger" type="button" @onclick="() => Delete(admin)" disabled="@(admin.Id == currentId)"
+                                    title="@(admin.Id == currentId ? "No puedes eliminar tu propia cuenta" : null)">Eliminar</button>
                         </td>
                     </tr>
                 }
@@ -46,11 +49,48 @@ else
     </div>
 }
 
+<Modal @ref="form" Title="@(editing?.Id is null or 0 ? "Nuevo admin" : "Editar admin")" OnClose="() => editing = null">
+    @if (editing is not null)
+    {
+        <EditForm Model="editing" OnValidSubmit="Save" class="form">
+            <DataAnnotationsValidator />
+            <label class="field">Nombre<InputText @bind-Value="editing.Name" placeholder="Ej: Shiro" autofocus /></label>
+            <ValidationMessage For="() => editing.Name" />
+            <label class="field">Usuario<InputText @bind-Value="editing.Username" autocomplete="off" placeholder="Ej: shiro (para iniciar sesión)" /></label>
+            <ValidationMessage For="() => editing.Username" />
+            <label class="field">Email<InputText type="email" @bind-Value="editing.Email" placeholder="Ej: shiro@ejemplo.com" /></label>
+            <ValidationMessage For="() => editing.Email" />
+            <label class="field">
+                Contraseña
+                <InputText type="password" @bind-Value="editing.Password" autocomplete="new-password"
+                           placeholder="@(editing.Id == 0 ? "Mínimo 8 caracteres" : "Déjala vacía para no cambiarla")" />
+            </label>
+            <ValidationMessage For="() => editing.Password" />
+            @if (error is not null)
+            {
+                <p class="alert">@error</p>
+            }
+            <div class="modal-actions">
+                <button type="button" class="btn" @onclick="() => form.CloseAsync()">Cancelar</button>
+                <button type="submit" class="btn btn-primary" disabled="@saving">@(saving ? "Guardando..." : "Guardar")</button>
+            </div>
+        </EditForm>
+    }
+</Modal>
+
+<ConfirmDialog @ref="confirm" />
+
 @code {
     [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = default!;
 
     private List<Admin>? admins;
     private int currentId;
+    private Modal form = default!;
+    private ConfirmDialog confirm = default!;
+    // A copy, so Cancelar doesn't leave half-edited values in the table.
+    private Admin? editing;
+    private string? error;
+    private bool saving;
 
     protected override async Task OnInitializedAsync()
     {
@@ -58,12 +98,45 @@ else
         admins = await Admins.GetAllAsync();
     }
 
+    private void Open(Admin? admin)
+    {
+        editing = admin is null ? new() : new() { Id = admin.Id, Name = admin.Name, Username = admin.Username, Email = admin.Email, PasswordHash = admin.PasswordHash };
+        error = null;
+        form.Show();
+    }
+
+    private async Task Save()
+    {
+        var admin = editing!;
+        if (admin.Id == 0 && string.IsNullOrEmpty(admin.Password))
+        {
+            error = "La contraseña es obligatoria.";
+            return;
+        }
+
+        saving = true;
+        var saved = await Admins.SaveAsync(admin);
+        saving = false;
+        if (!saved)
+        {
+            error = "Ese usuario o email ya lo usa otro admin.";
+            return;
+        }
+
+        var isNew = admins!.All(a => a.Id != admin.Id);
+        await form.CloseAsync();
+        admins = await Admins.GetAllAsync();
+        await Toast(isNew ? $"{admin.Name} ya puede entrar al panel." : "Cambios guardados.");
+    }
+
     private async Task Delete(Admin admin)
     {
-        // Nobody deletes their own account, so there's always at least one admin left.
         if (admin.Id == currentId) return;
-        if (!await JS.InvokeAsync<bool>("confirm", $"¿Eliminar a {admin.Name} ({admin.Username})? Pierde el acceso al panel al instante.")) return;
+        if (!await confirm.AskAsync($"¿Eliminar a {admin.Name}?", $"{admin.Username} pierde el acceso al panel al instante. No se puede deshacer.", "Eliminar admin")) return;
         await Admins.DeleteAsync(admin.Id);
         admins!.Remove(admin);
+        await Toast($"{admin.Name} eliminado.");
     }
+
+    private ValueTask Toast(string message, string kind = "success") => JS.InvokeVoidAsync("adminUi.toast", message, kind);
 }

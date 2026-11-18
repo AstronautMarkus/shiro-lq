@@ -19,6 +19,10 @@
 <body>
     <Routes />
     <ReconnectModal />
+    @if (IsAdmin)
+    {
+        <script src="@Assets["admin.js"]"></script>
+    }
     <script src="@Assets["_framework/blazor.web.js"]"></script>
 </body>
 

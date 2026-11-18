@@ -1,72 +1,208 @@
 @page "/admin/mods/new"
 @page "/admin/mods/{Id:guid}"
 @rendermode InteractiveServer
+@implements IAsyncDisposable
 @inject ModStore Store
 @inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject ILogger<ModEdit> Log
 
 <PageTitle>Admin - @(IsNew ? "Nuevo mod" : "Editar mod")</PageTitle>
 
 @if (mod is not null)
 {
     <div class="admin-head">
-        <h1>@(IsNew ? "Nuevo mod" : "Editar mod")</h1>
+        <div>
+            <p class="crumbs"><a href="admin">Mods</a> / @(IsNew ? "Nuevo" : original.Name)</p>
+            <h1>@(IsNew ? "Nuevo mod" : "Editar mod")</h1>
+        </div>
+        @if (!IsNew)
+        {
+            <a class="btn" href="mods/@mod.Id" target="_blank" rel="noopener">Ver en el sitio &nearr;</a>
+        }
     </div>
 
-    <div class="panel">
-        <EditForm Model="mod" OnValidSubmit="Save" class="form">
-            <DataAnnotationsValidator />
-            <label class="field">Nombre<InputText @bind-Value="mod.Name" placeholder="Ej: Isla Norte" /></label>
-            <ValidationMessage For="() => mod.Name" />
-            <label class="field">Descripción<InputTextArea @bind-Value="mod.Description" rows="6" placeholder="Qué incluye el mod y cómo instalarlo" /></label>
-            <ValidationMessage For="() => mod.Description" />
-            <label class="field">
-                Tipo (elige uno)
-                <InputSelect @bind-Value="mod.Type">
-                    @foreach (var type in Enum.GetValues<ModType>())
+    <EditForm Model="mod" OnValidSubmit="Save" class="editor">
+        <DataAnnotationsValidator />
+
+        <div class="editor-main">
+            <section class="panel">
+                <h2 class="panel-title">Información</h2>
+                @* @oninput keeps the preview live; the binding itself (and validation) updates on change. *@
+                <div class="form">
+                    <label class="field">Nombre<InputText @bind-Value="mod.Name" @oninput="e => mod.Name = e.Value as string ?? string.Empty" placeholder="Ej: Isla Norte" disabled="@saving" /></label>
+                    <ValidationMessage For="() => mod.Name" />
+                    <label class="field">
+                        <span class="field-row">Descripción <span class="hint">@mod.Description.Length / 5000</span></span>
+                        <InputTextArea @bind-Value="mod.Description" @oninput="e => mod.Description = e.Value as string ?? string.Empty" rows="7" placeholder="Qué incluye el mod y cómo instalarlo" disabled="@saving" />
+                    </label>
+                    <ValidationMessage For="() => mod.Description" />
+                    <label class="field">
+                        Tipo (elige uno)
+                        <InputSelect @bind-Value="mod.Type" disabled="@saving">
+                            @foreach (var type in Enum.GetValues<ModType>())
+                            {
+                                <option value="@type">@type.Label()</option>
+                            }
+                        </InputSelect>
+                    </label>
+                </div>
+            </section>
+
+            <section class="panel">
+                <h2 class="panel-title">Archivo del mod</h2>
+                @if (file is not null)
+                {
+                    <div class="file-chip is-new">
+                        <span class="file-icon" aria-hidden="true">@Extension(file.Name)</span>
+                        <span class="file-info"><strong>@file.Name</strong><span class="hint">@Size(file.Size) · se sube al guardar</span></span>
+                        <button type="button" class="btn btn-sm" @onclick="ResetFile" disabled="@saving">@(IsNew ? "Quitar" : "Deshacer")</button>
+                    </div>
+                }
+                else if (!IsNew)
+                {
+                    <div class="file-chip">
+                        <span class="file-icon" aria-hidden="true">@Extension(mod.FileName)</span>
+                        <span class="file-info"><strong>Archivo actual</strong><span class="hint">Se descarga como "@(mod.Name)@Path.GetExtension(mod.FileName)"</span></span>
+                    </div>
+                }
+                <InputFile @key="fileInput" id="@($"mod-file-{fileInput}")" class="sr-only" OnChange="PickFile" disabled="@saving" />
+                <label class="dropzone" for="mod-file-@fileInput">
+                    <strong>@(file is null && IsNew ? "Elige el archivo" : "Elegir otro archivo")</strong> o arrástralo aquí
+                    <span class="hint">Cualquier formato (.zip, .rar, .7z...). Máx. 500 MB.</span>
+                </label>
+            </section>
+
+            <section class="panel">
+                <h2 class="panel-title">Miniatura</h2>
+                <div class="thumb-picker">
+                    <div class="thumb-box">
+                        @if (ThumbnailSrc is not null)
+                        {
+                            <img src="@ThumbnailSrc" alt="Miniatura" />
+                        }
+                        else
+                        {
+                            <span>@(thumbnail is null ? "Sin miniatura" : "Sin vista previa")</span>
+                        }
+                    </div>
+                    <div class="thumb-actions">
+                        <InputFile @key="thumbnailInput" id="@($"thumbnail-{thumbnailInput}")" class="sr-only" accept="@imageAccept" OnChange="PickThumbnail" disabled="@saving" />
+                        <label class="dropzone" for="thumbnail-@thumbnailInput">
+                            <strong>@(ThumbnailSrc is null ? "Elige una imagen" : "Cambiar imagen")</strong> o arrástrala aquí
+                            <span class="hint">JPG, PNG, WEBP o GIF. Máx. 10 MB. En el sitio se recorta a 4:3.</span>
+                        </label>
+                        @if (thumbnail is not null)
+                        {
+                            <button type="button" class="btn btn-sm" @onclick="ResetThumbnail" disabled="@saving">@(IsNew ? "Quitar" : "Volver a la actual")</button>
+                        }
+                    </div>
+                </div>
+            </section>
+
+            <section class="panel">
+                <h2 class="panel-title">Fotos <span class="hint">@PhotoCount / @ModStore.MaxImages</span></h2>
+                <div class="photo-grid">
+                    @foreach (var name in mod.Images)
                     {
-                        <option value="@type">@type.Label()</option>
+                        <figure class="photo">
+                            <img src="@mod.ImageUrl(name)" alt="Foto actual" />
+                            <button type="button" class="photo-remove" aria-label="Quitar foto" @onclick="() => RemoveCurrent(name)" disabled="@saving">&times;</button>
+                        </figure>
                     }
-                </InputSelect>
-            </label>
-
-            <label class="field">
-                Archivo del mod (@(IsNew ? "obligatorio" : "opcional, reemplaza el actual"), máx. 500 MB)
-                <InputFile OnChange="e => file = e.File" />
-            </label>
-
-            <label class="field">
-                Miniatura (@(IsNew ? "obligatoria" : "opcional, reemplaza la actual"), máx. 10 MB)
-                <InputFile OnChange="e => thumbnail = e.File" accept="@imageAccept" />
-            </label>
-            @if (!IsNew)
-            {
-                <div class="preview"><img src="@mod.ImageUrl(mod.Thumbnail)" alt="Miniatura actual" /></div>
-            }
-
-            <label class="field">
-                Fotos (opcional, hasta @ModStore.MaxImages, máx. 10 MB c/u@(IsNew ? "" : "; si eliges fotos nuevas reemplazan todas las actuales"))
-                <InputFile OnChange="e => images = e.GetMultipleFiles(int.MaxValue)" accept="@imageAccept" multiple />
-            </label>
-            @if (!IsNew && mod.Images.Count > 0)
-            {
-                <div class="preview">
-                    @foreach (var image in mod.Images)
+                    @foreach (var photo in newPhotos)
                     {
-                        <img src="@mod.ImageUrl(image)" alt="Foto actual" />
+                        <figure class="photo is-new">
+                            @if (photo.Preview is not null)
+                            {
+                                <img src="@photo.Preview" alt="Foto nueva: @photo.File.Name" />
+                            }
+                            else
+                            {
+                                <span class="photo-name">@photo.File.Name</span>
+                            }
+                            <span class="badge">Nueva</span>
+                            <button type="button" class="photo-remove" aria-label="Quitar @photo.File.Name" @onclick="() => newPhotos.Remove(photo)" disabled="@saving">&times;</button>
+                        </figure>
+                    }
+                    @* One input per batch, never moved: picking again in the same input would drop the files picked before.
+                       Only the last one is in use; the older ones just hold their files until saving. *@
+                    @foreach (var batch in photoInputs)
+                    {
+                        var current = batch == photoInputs[^1];
+                        <InputFile @key="batch" id="@($"photos-{batch}")" class="sr-only" accept="@imageAccept" multiple OnChange="AddPhotos"
+                                   disabled="@(saving && current)" tabindex="@(current ? null : "-1")" aria-hidden="@(current ? null : "true")" />
+                    }
+                    @if (PhotoCount < ModStore.MaxImages)
+                    {
+                        <label class="dropzone photo-add" for="photos-@photoInputs[^1]">
+                            <strong>+ Agregar</strong>
+                            <span class="hint">o arrastra aquí</span>
+                        </label>
                     }
                 </div>
-            }
+                @if (removedPhotos.Count > 0)
+                {
+                    <p class="notice">
+                        @removedPhotos.Count @(removedPhotos.Count == 1 ? "foto se quitará" : "fotos se quitarán") al guardar.
+                        <button type="button" class="link-btn" @onclick="RestorePhotos" disabled="@saving">Deshacer</button>
+                    </p>
+                }
+            </section>
+        </div>
 
-            @if (error is not null)
+        <aside class="editor-side">
+            <section class="panel">
+                <h2 class="panel-title">Vista previa</h2>
+                <p class="hint">Así se verá en la lista de mods del sitio.</p>
+                <article class="site-preview">
+                    <div class="sp-thumb">
+                        @if (ThumbnailSrc is not null)
+                        {
+                            <img src="@ThumbnailSrc" alt="" />
+                        }
+                    </div>
+                    <div class="sp-body">
+                        <p class="sp-eyebrow">@mod.Type.Label()</p>
+                        <p class="sp-title">@(string.IsNullOrWhiteSpace(mod.Name) ? "Nombre del mod" : mod.Name)</p>
+                        <p class="sp-text">@(string.IsNullOrWhiteSpace(mod.Description) ? "Aquí va la descripción del mod." : mod.Description)</p>
+                        <span class="sp-btn">Ver mod &rsaquo;</span>
+                    </div>
+                </article>
+                @if (PhotoCount > 0)
+                {
+                    <p class="hint">Fotos en la página del mod:</p>
+                    <div class="sp-photos">
+                        @foreach (var src in mod.Images.Select(mod.ImageUrl).Concat(newPhotos.Select(p => p.Preview)).Take(6))
+                        {
+                            <div>@if (src is not null) { <img src="@src" alt="" /> }</div>
+                        }
+                    </div>
+                }
+            </section>
+        </aside>
+
+        <div class="savebar">
+            @if (saving)
             {
-                <p class="alert">@error</p>
+                <div class="savebar-progress">
+                    <div class="progress" role="progressbar" aria-label="Subida" aria-valuemin="0" aria-valuemax="100" aria-valuenow="@Percent">
+                        <div style="width: @(Percent)%"></div>
+                    </div>
+                    <span class="hint">Subiendo @Percent % (@Size(uploaded) de @Size(total)). No cierres esta pestaña.</span>
+                </div>
+                <button type="button" class="btn" @onclick="CancelUpload" disabled="@(upload?.IsCancellationRequested == true)">Cancelar subida</button>
             }
-            <div class="form-actions">
-                <button class="btn btn-primary" type="submit" disabled="@saving">@(saving ? "Guardando..." : "Guardar")</button>
+            else
+            {
+                <span class="savebar-status @(IsDirty ? "is-dirty" : "")">@(IsDirty ? "Cambios sin guardar" : "Sin cambios")</span>
                 <a class="btn" href="admin">Cancelar</a>
-            </div>
-        </EditForm>
-    </div>
+                <button class="btn btn-primary" type="submit" disabled="@(!IsDirty)">@(IsNew ? "Publicar mod" : "Guardar cambios")</button>
+            }
+        </div>
+    </EditForm>
+
+    <ConfirmDialog @ref="confirm" />
 }
 
 @code {
@@ -76,39 +212,226 @@
 
     private bool IsNew => Id is null;
     private Mod? mod;
+    // Text as loaded, to tell whether there are unsaved changes.
+    private Mod original = new();
+
     private IBrowserFile? file;
     private IBrowserFile? thumbnail;
-    private IReadOnlyList<IBrowserFile> images = [];
-    private string? error;
-    private bool saving;
+    private string? thumbnailPreview;
+    private readonly List<(IBrowserFile File, string? Preview)> newPhotos = [];
+    private readonly List<string> removedPhotos = [];
+    // Changing an InputFile's @key gives a fresh <input>, so "Quitar" can be followed by picking the same file again.
+    private int fileInput, thumbnailInput, lastPhotoInput;
+    private readonly List<int> photoInputs = [0];
+
+    private ConfirmDialog confirm = default!;
+    private CancellationTokenSource? upload;
+    private long uploaded, total;
+    private DateTime lastProgressRender;
+    private bool done;
+    // admin.js asks this page before following a link while there are unsaved changes.
+    private DotNetObjectReference<ModEdit>? self;
+    private bool guarded;
+
+    private bool saving => upload is not null;
+    private int PhotoCount => mod!.Images.Count + newPhotos.Count;
+    private string? ThumbnailSrc => thumbnail is not null ? thumbnailPreview : IsNew ? null : mod!.ImageUrl(mod.Thumbnail);
+    private int Percent => total == 0 ? 100 : (int)(uploaded * 100 / total);
+    private bool IsDirty => !done && (file is not null || thumbnail is not null || newPhotos.Count > 0 || removedPhotos.Count > 0
+        || mod!.Name != original.Name || mod.Description != original.Description || mod.Type != original.Type);
 
     protected override async Task OnParametersSetAsync()
     {
         mod = IsNew ? new() : await Store.GetAsync(Id!.Value);
-        if (mod is null) Nav.NotFound();
+        if (mod is null)
+        {
+            Nav.NotFound();
+            return;
+        }
+        original = new() { Name = mod.Name, Description = mod.Description, Type = mod.Type };
+    }
+
+    private async Task PickFile(InputFileChangeEventArgs e)
+    {
+        if (e.File.Size > ModStore.MaxFileSize)
+        {
+            fileInput++;
+            await Toast($"{e.File.Name} pesa {Size(e.File.Size)}: el máximo es 500 MB.", "error");
+            return;
+        }
+        file = e.File;
+    }
+
+    private void ResetFile()
+    {
+        file = null;
+        fileInput++;
+    }
+
+    private async Task PickThumbnail(InputFileChangeEventArgs e)
+    {
+        if (await CheckImage(e.File) is not null)
+        {
+            thumbnailInput++;
+            return;
+        }
+        thumbnail = e.File;
+        thumbnailPreview = await PreviewAsync(e.File);
+    }
+
+    private void ResetThumbnail()
+    {
+        thumbnail = null;
+        thumbnailPreview = null;
+        thumbnailInput++;
+    }
+
+    private async Task AddPhotos(InputFileChangeEventArgs e)
+    {
+        photoInputs.Add(++lastPhotoInput);
+        var skipped = 0;
+        foreach (var photo in e.GetMultipleFiles(int.MaxValue))
+        {
+            if (PhotoCount >= ModStore.MaxImages) skipped++;
+            else if (await CheckImage(photo) is null) newPhotos.Add((photo, await PreviewAsync(photo)));
+        }
+        if (skipped > 0) await Toast($"Máximo {ModStore.MaxImages} fotos: {skipped} no se agregaron.", "error");
+    }
+
+    private void RemoveCurrent(string name)
+    {
+        mod!.Images.Remove(name);
+        removedPhotos.Add(name);
+    }
+
+    private void RestorePhotos()
+    {
+        mod!.Images.AddRange(removedPhotos);
+        removedPhotos.Clear();
     }
 
     private async Task Save()
     {
-        error = Validate();
-        if (error is not null) return;
+        if (saving) return; // Enter in a field while uploading
+        var error = IsNew && file is null ? "Falta el archivo del mod."
+            : IsNew && thumbnail is null ? "Falta la miniatura."
+            : PhotoCount > ModStore.MaxImages ? $"Máximo {ModStore.MaxImages} fotos: quita {PhotoCount - ModStore.MaxImages}."
+            : null;
+        if (error is not null)
+        {
+            await Toast(error, "error");
+            return;
+        }
 
-        saving = true;
-        await Store.SaveAsync(mod!, file, thumbnail, images);
+        upload = new();
+        uploaded = 0;
+        total = (file?.Size ?? 0) + (thumbnail?.Size ?? 0) + newPhotos.Sum(p => p.File.Size);
+        // Reports arrive for every chunk read; re-render a few times per second at most.
+        var progress = new Progress<long>(bytes =>
+        {
+            uploaded = bytes;
+            if (DateTime.UtcNow - lastProgressRender < TimeSpan.FromMilliseconds(250)) return;
+            lastProgressRender = DateTime.UtcNow;
+            StateHasChanged();
+        });
+        var wasNew = IsNew;
+        try
+        {
+            await Store.SaveAsync(mod!, file, thumbnail, newPhotos.Select(p => p.File).ToList(), progress, upload.Token);
+        }
+        catch (OperationCanceledException) when (upload.IsCancellationRequested)
+        {
+            await Toast("Subida cancelada. No se guardó nada.", "info");
+            return;
+        }
+        catch (Exception e)
+        {
+            Log.LogError(e, "Saving mod {Id} failed", mod!.Id);
+            await Toast("No se pudo guardar el mod. Revisa la conexión e inténtalo de nuevo.", "error");
+            return;
+        }
+        finally
+        {
+            upload.Dispose();
+            upload = null;
+        }
+
+        done = true; // no longer dirty: nothing to confirm on the way out
+        await Toast(wasNew ? $"\"{mod!.Name}\" publicado." : "Cambios guardados.");
         Nav.NavigateTo("admin");
     }
 
-    private string? Validate()
+    private void CancelUpload() => upload?.Cancel();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (IsNew && file is null) return "Elige el archivo del mod.";
-        if (file?.Size > ModStore.MaxFileSize) return "El archivo del mod pesa más de 500 MB.";
-        if (IsNew && thumbnail is null) return "Elige una miniatura.";
-        if (images.Count > ModStore.MaxImages) return $"Máximo {ModStore.MaxImages} fotos.";
-        foreach (var image in images.Prepend(thumbnail).OfType<IBrowserFile>())
-        {
-            if (!ModStore.IsImage(image.Name)) return $"{image.Name} no es una imagen ({imageAccept}).";
-            if (image.Size > ModStore.MaxImageSize) return $"{image.Name} pesa más de 10 MB.";
-        }
-        return null;
+        if (mod is null || IsDirty == guarded) return; // mod is null on the first render while it loads
+        guarded = IsDirty;
+        self ??= DotNetObjectReference.Create(this);
+        await JS.InvokeVoidAsync("adminUi.guardLeave", guarded ? self : null);
     }
+
+    [JSInvokable]
+    public async Task<bool> ConfirmLeaveAsync()
+    {
+        if (!IsDirty) return true;
+        var message = saving
+            ? "La subida está en curso. Si sales ahora se cancela y no se guarda nada."
+            : "Hay cambios sin guardar en este mod. Si sales ahora se pierden.";
+        return await confirm.AskAsync("¿Salir sin guardar?", message, "Salir sin guardar");
+    }
+
+    // Leaving the page (or closing the circuit) mid-upload cancels it, and ModStore cleans up what was uploaded.
+    public async ValueTask DisposeAsync()
+    {
+        upload?.Cancel();
+        if (self is null) return; // never rendered interactively
+        try
+        {
+            await JS.InvokeVoidAsync("adminUi.guardLeave", null);
+        }
+        catch (JSDisconnectedException)
+        {
+            // tab closed: no guard left to release
+        }
+        self.Dispose();
+    }
+
+    // Null when the image is fine; otherwise shows why in a toast.
+    private async Task<string?> CheckImage(IBrowserFile image)
+    {
+        var error = !ModStore.IsImage(image.Name) ? $"{image.Name} no es una imagen ({imageAccept})."
+            : image.Size > ModStore.MaxImageSize ? $"{image.Name} pesa {Size(image.Size)}: el máximo es 10 MB."
+            : null;
+        if (error is not null) await Toast(error, "error");
+        return error;
+    }
+
+    // A copy scaled down in the browser, so the preview doesn't send the full image to the server and back.
+    private static async Task<string?> PreviewAsync(IBrowserFile image)
+    {
+        try
+        {
+            var small = await image.RequestImageFileAsync("image/webp", 640, 640);
+            await using var stream = small.OpenReadStream(ModStore.MaxImageSize);
+            using var buffer = new MemoryStream();
+            await stream.CopyToAsync(buffer);
+            return $"data:{small.ContentType};base64,{Convert.ToBase64String(buffer.ToArray())}";
+        }
+        catch (JSException)
+        {
+            return null; // the browser couldn't decode it: no preview, the file is still uploaded
+        }
+    }
+
+    private static string Extension(string fileName) => Path.GetExtension(fileName).TrimStart('.').ToUpperInvariant() is { Length: > 0 } ext ? ext : "?";
+
+    private static string Size(long bytes) => bytes switch
+    {
+        < 1024 * 1024 => $"{bytes / 1024.0:0.#} KB",
+        < 1024L * 1024 * 1024 => $"{bytes / (1024.0 * 1024):0.#} MB",
+        _ => $"{bytes / (1024.0 * 1024 * 1024):0.##} GB",
+    };
+
+    private ValueTask Toast(string message, string kind = "success") => JS.InvokeVoidAsync("adminUi.toast", message, kind);
 }

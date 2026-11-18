@@ -8,7 +8,7 @@ namespace shiro_lq.Data;
 // Picked at startup with Storage:Provider (see Program.cs).
 public interface IFileStorage
 {
-    Task SaveAsync(string key, Stream content, long length);
+    Task SaveAsync(string key, Stream content, long length, CancellationToken cancellationToken = default);
     Task DeleteAsync(string key);
     // Deletes every file whose key starts with "{folder}/".
     Task DeleteFolderAsync(string folder);
@@ -19,12 +19,12 @@ public interface IFileStorage
 // Fallback: files on this server's disk. Only works with a single server, and the folder must survive deploys.
 public class LocalFileStorage(string root) : IFileStorage
 {
-    public async Task SaveAsync(string key, Stream content, long length)
+    public async Task SaveAsync(string key, Stream content, long length, CancellationToken cancellationToken = default)
     {
         var path = Path.Combine(root, key);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         await using var output = File.Create(path);
-        await content.CopyToAsync(output);
+        await content.CopyToAsync(output, cancellationToken);
     }
 
     public Task DeleteAsync(string key)
@@ -50,8 +50,8 @@ public class LocalFileStorage(string root) : IFileStorage
 public class S3FileStorage(IAmazonS3 s3, string bucket) : IFileStorage
 {
     // The browser file stream can't seek, so the SDK needs the length up front.
-    public Task SaveAsync(string key, Stream content, long length) =>
-        s3.PutObjectAsync(new PutObjectRequest { BucketName = bucket, Key = key, InputStream = content, Headers = { ContentLength = length } });
+    public Task SaveAsync(string key, Stream content, long length, CancellationToken cancellationToken = default) =>
+        s3.PutObjectAsync(new PutObjectRequest { BucketName = bucket, Key = key, InputStream = content, Headers = { ContentLength = length } }, cancellationToken);
 
     public Task DeleteAsync(string key) => s3.DeleteObjectAsync(bucket, key);
 

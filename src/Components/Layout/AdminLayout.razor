@@ -5,15 +5,27 @@
         <aside class="admin-nav">
             <p class="admin-logo">Shiro <span>LQ</span> <small>admin</small></p>
             <nav>
-                <NavLink href="admin" Match="NavLinkMatch.All">Mods</NavLink>
-                <NavLink href="admin/admins">Admins</NavLink>
+                <NavLink href="admin" Match="NavLinkMatch.All">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 8 12 3 3 8l9 5 9-5ZM3 8v8l9 5 9-5V8M12 13v8" /></svg>
+                    Mods
+                </NavLink>
+                <NavLink href="admin/admins">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8" /></svg>
+                    Admins
+                </NavLink>
                 @* Full page load: the public site uses a different stylesheet. *@
-                <a href="" data-enhance-nav="false">Ver sitio &nearr;</a>
+                <a href="" target="_blank" rel="noopener" data-enhance-nav="false">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7M10 14 21 3M19 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5" /></svg>
+                    Ver sitio
+                </a>
             </nav>
             <form class="admin-user" method="post" action="admin/logout">
                 <AntiforgeryToken />
-                <span>@context.User.Identity?.Name</span>
-                <button class="btn btn-sm" type="submit">Cerrar sesión</button>
+                <span class="avatar" aria-hidden="true">@context.User.Identity?.Name?[..1].ToUpperInvariant()</span>
+                <span class="admin-user-name">@context.User.Identity?.Name</span>
+                <button class="icon-btn" type="submit" aria-label="Cerrar sesión" title="Cerrar sesión">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /></svg>
+                </button>
             </form>
         </aside>
     </AuthorizeView>
@@ -22,6 +34,9 @@
         @Body
     </main>
 </div>
+
+@* JS adds the toasts (wwwroot/admin.js); data-permanent keeps them through Blazor's enhanced navigation. *@
+<div id="toasts" class="toasts" aria-live="polite" data-permanent></div>
 
 <div id="blazor-error-ui" data-nosnippet>
     Ocurrió un error inesperado.

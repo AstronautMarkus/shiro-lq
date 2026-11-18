@@ -114,10 +114,10 @@ cd publish && dotnet shiro-lq.dll
 
 ## Panel de administración
 
-En `/admin` (no hay enlace desde el sitio público). Pide iniciar sesión en `/admin/login` y tiene su propia hoja de estilos (`wwwroot/admin.css`).
+En `/admin` (no hay enlace desde el sitio público). Pide iniciar sesión en `/admin/login` y tiene su propia hoja de estilos y JavaScript (`wwwroot/admin.css` y `wwwroot/admin.js`). Las acciones se confirman en modales y el resultado se avisa con notificaciones; no usa los `alert`/`confirm` del navegador.
 
-- **Mods**: crear, editar y eliminar. Al editar, el archivo, la miniatura y las fotos son opcionales: si no se eligen, se quedan los actuales; si se eligen fotos nuevas, reemplazan todas las anteriores. Al eliminar un mod también se borran sus archivos del almacenamiento.
-- **Admins**: crear, editar y eliminar. Al editar, la contraseña vacía deja la actual. Nadie puede borrarse a sí mismo, y un admin borrado pierde el acceso en su siguiente petición.
+- **Mods**: crear, editar y eliminar. El editor muestra una vista previa en vivo de cómo se verá el mod en el sitio y de las imágenes elegidas antes de subirlas. Los archivos se pueden arrastrar, y cada cosa elegida se puede quitar o deshacer antes de guardar. Al editar, el archivo y la miniatura son opcionales (si no se eligen, se quedan los actuales) y las fotos se quitan o agregan de a una. Al guardar se ve el progreso de la subida y se puede cancelar: no queda nada guardado a medias. Si sales con cambios sin guardar, pide confirmación. Al eliminar un mod también se borra su carpeta del almacenamiento.
+- **Admins**: crear, editar (en un modal) y eliminar. Al editar, la contraseña vacía deja la actual. Nadie puede borrarse a sí mismo, y un admin borrado pierde el acceso en su siguiente petición.
 
 Las contraseñas se guardan con hash (PBKDF2 de ASP.NET Core). El login acepta 10 peticiones por minuto por IP; detrás de un proxy inverso todas llegan con la IP del proxy y comparten ese límite.
 
