@@ -1,6 +1,8 @@
 ﻿@page "/"
 @attribute [StreamRendering]
 @inject ModStore Store
+@inject ChannelStore Channels
+@inject VideoStore Videos
 
 <PageTitle>ShiroLQ - Inicio</PageTitle>
 
@@ -12,27 +14,59 @@
 <section class="box">
     <h2>&#9654; Último video / Estreno en el canal</h2>
     <div class="box-body">
-        @* To show a real video, paste the YouTube <iframe> here *@
-        <div class="video"></div>
-        <p class="card-title">Título del último video</p>
-        <p class="meta">Subido el 16/11/2026</p>
+        @if (videos is null)
+        {
+            @* Streamed first: shown while the videos load. *@
+            <div aria-busy="true">
+                <span class="sr-only">Cargando videos...</span>
+                <div class="video skeleton" aria-hidden="true"></div>
+                <span class="skeleton skeleton-line skeleton-title" aria-hidden="true"></span>
+            </div>
+        }
+        else if (videos.Count == 0)
+        {
+            <p class="muted">Aún no hay videos.</p>
+        }
+        else
+        {
+            var latest = videos[0];
+            <div class="video">
+                <iframe src="@latest.EmbedUrl" title="@latest.Title" referrerpolicy="strict-origin-when-cross-origin"
+                        allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+            </div>
+            <p class="card-title">@latest.Title</p>
+            <p class="meta">Subido el @latest.Date</p>
+        }
     </div>
 </section>
 
-<section class="box">
-    <h2>Más videos del canal <a href="videos">Ver videoteca &rsaquo;</a></h2>
-    <div class="box-body">
-        <div class="grid">
-            @for (var i = 1; i <= 3; i++)
-            {
-                <div>
-                    <div class="video"></div>
-                    <p class="card-title">Video Loquendo #@i</p>
-                </div>
-            }
+@if (videos is null || videos.Count > 1)
+{
+    <section class="box">
+        <h2>Más videos del canal <a href="videos">Ver videoteca &rsaquo;</a></h2>
+        <div class="box-body">
+            <div class="grid">
+                @if (videos is null)
+                {
+                    @for (var i = 0; i < 3; i++)
+                    {
+                        <div aria-hidden="true">
+                            <div class="video skeleton"></div>
+                            <span class="skeleton skeleton-line skeleton-title"></span>
+                        </div>
+                    }
+                }
+                @foreach (var video in videos?.Skip(1) ?? [])
+                {
+                    <div>
+                        <a class="video" href="@video.Url" target="_blank" rel="noopener"><img src="@video.ThumbnailUrl" alt="" loading="lazy" /></a>
+                        <p class="card-title"><a href="@video.Url" target="_blank" rel="noopener">@video.Title</a></p>
+                    </div>
+                }
+            </div>
         </div>
-    </div>
-</section>
+    </section>
+}
 
 <section class="box">
     <h2>Mods recién salidos del horno <a href="mods">Todas las descargas &rsaquo;</a></h2>
@@ -86,6 +120,13 @@
 
 @code {
     private List<Mod>? mods;
+    // The main channel's newest 4: the first one is played on the page, the rest are linked.
+    private List<Video>? videos;
 
-    protected override async Task OnInitializedAsync() => mods = await Store.GetAllAsync(includePrivate: false);
+    protected override async Task OnInitializedAsync()
+    {
+        var main = await Channels.GetMainAsync();
+        videos = main is null ? [] : await Videos.GetLatestAsync(main.Id, 4);
+        mods = await Store.GetAllAsync(includePrivate: false);
+    }
 }

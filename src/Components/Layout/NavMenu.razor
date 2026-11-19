@@ -2,5 +2,13 @@
     <NavLink href="" Match="NavLinkMatch.All">Inicio</NavLink>
     <NavLink href="videos">Videos</NavLink>
     <NavLink href="mods">Mods y skins</NavLink>
-    <a class="btn nav-yt" href="@MainLayout.YouTubeUrl" target="_blank" rel="noopener">&#9654; YouTube</a>
+    @if (YouTubeUrl is not null)
+    {
+        <a class="btn nav-yt" href="@YouTubeUrl" target="_blank" rel="noopener">&#9654; YouTube</a>
+    }
 </nav>
+
+@code {
+    // The main channel's link; null while there are no channels.
+    [Parameter] public string? YouTubeUrl { get; set; }
+}

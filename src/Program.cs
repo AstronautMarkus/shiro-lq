@@ -33,6 +33,10 @@ builder.Services.AddSingleton<IFileStorage>(builder.Configuration["Storage:Provi
 });
 builder.Services.AddSingleton<ModStore>();
 builder.Services.AddSingleton<AdminStore>();
+builder.Services.AddSingleton<ChannelStore>();
+builder.Services.AddSingleton<VideoStore>();
+builder.Services.AddSingleton<YouTubeSync>();
+builder.Services.AddHostedService(services => services.GetRequiredService<YouTubeSync>());
 
 // Admin panel: cookie login at /admin/login, pages under /admin require it.
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme).AddCookie(options =>
@@ -66,6 +70,8 @@ var app = builder.Build();
 var admins = app.Services.GetRequiredService<AdminStore>();
 await admins.EnsureTableAsync();
 await app.Services.GetRequiredService<ModStore>().EnsureTablesAsync(); // after admins: mods.author_id points there
+await app.Services.GetRequiredService<ChannelStore>().EnsureTableAsync();
+await app.Services.GetRequiredService<VideoStore>().EnsureTableAsync(); // after channels: videos.channel_id points there
 // First run only: the first admin comes from config like the other secrets. After that, admins are managed in /admin/admins.
 if (!await admins.AnyAsync())
     await admins.SaveAsync(new() { Name = Required("Admin:Name"), Username = Required("Admin:Username"), Email = Required("Admin:Email"), Password = Required("Admin:Password") });

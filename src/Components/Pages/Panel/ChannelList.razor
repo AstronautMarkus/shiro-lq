@@ -1,0 +1,181 @@
+@page "/admin/channels"
+@* No prerender: it would show the content, then the skeleton again while the interactive copy reloads. *@
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@inject ChannelStore Channels
+@inject YouTubeSync Sync
+@inject IJSRuntime JS
+
+<PageTitle>Admin - Canales</PageTitle>
+
+<div class="admin-head">
+    <div>
+        <h1>Canales</h1>
+        <p class="hint">Los canales de YouTube del sitio. El principal es el canal oficial. Los videos nuevos se traen solos cada 15 minutos.</p>
+    </div>
+    <div class="admin-head-actions">
+        @if (All?.Count > 0)
+        {
+            <button class="btn" type="button" @onclick="SyncAll" disabled="@syncing">@(syncing ? "Sincronizando..." : "Sincronizar videos")</button>
+        }
+        <button class="btn btn-primary" type="button" @onclick="() => Open(null)">+ Nuevo canal</button>
+    </div>
+</div>
+
+@if (All is null)
+{
+    <div class="panel table-wrap" aria-busy="true">
+        <span class="sr-only">Cargando canales...</span>
+        <table class="table" aria-hidden="true">
+            <tbody>
+                @for (var i = 0; i < 2; i++)
+                {
+                    <tr>
+                        <td><span class="skeleton skeleton-line" style="width: 140px"></span></td>
+                        <td><span class="skeleton skeleton-line" style="width: 200px"></span></td>
+                        <td><span class="skeleton skeleton-line" style="width: 30px"></span></td>
+                        <td class="actions"><span class="skeleton skeleton-btn"></span><span class="skeleton skeleton-btn"></span></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+else if (All.Count == 0)
+{
+    <div class="panel empty">
+        <p>Todavía no hay canales. El primero que agregues será el principal.</p>
+        <button class="btn btn-primary" type="button" @onclick="() => Open(null)">Agregar el canal principal</button>
+    </div>
+}
+else
+{
+    <div class="panel table-wrap">
+        <table class="table">
+            <thead>
+                <tr><th>Canal</th><th>Enlace</th><th>Videos</th><th><span class="sr-only">Acciones</span></th></tr>
+            </thead>
+            <tbody>
+                @foreach (var channel in All)
+                {
+                    <tr>
+                        <td>@channel.Name @if (channel.IsMain) { <span class="pill pill-public">Principal</span> }</td>
+                        <td><a href="@channel.Url" target="_blank" rel="noopener">@channel.Url.Replace("https://", "")</a></td>
+                        <td>@channel.VideoCount</td>
+                        <td class="actions">
+                            @if (!channel.IsMain)
+                            {
+                                <button class="btn btn-sm" type="button" @onclick="() => MakeMain(channel)">Hacer principal</button>
+                            }
+                            <button class="btn btn-sm" type="button" @onclick="() => Open(channel)">Editar</button>
+                            @* There's always a main channel: to remove it, make another one main first. *@
+                            <button class="btn btn-sm btn-danger" type="button" @onclick="() => Delete(channel)" disabled="@channel.IsMain"
+                                    title="@(channel.IsMain ? "Primero haz principal a otro canal" : null)">Eliminar</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<Modal @ref="form" Title="@(editing?.Id is null or 0 ? "Nuevo canal" : "Editar canal")" OnClose="() => editing = null">
+    @if (editing is not null)
+    {
+        <EditForm Model="editing" OnValidSubmit="Save" class="form">
+            <DataAnnotationsValidator />
+            <label class="field">Nombre<InputText @bind-Value="editing.Name" placeholder="Ej: ShiroLQ" autofocus /></label>
+            <ValidationMessage For="() => editing.Name" />
+            <label class="field">Enlace del canal<InputText type="url" @bind-Value="editing.Url" placeholder="@("Ej: https://www.youtube.com/@ShiroLQ")" /></label>
+            <ValidationMessage For="() => editing.Url" />
+            <label class="field">
+                <span class="field-row">Descripción (opcional) <span class="hint">@editing.Description.Length / 500</span></span>
+                <InputTextArea @bind-Value="editing.Description" @oninput="e => editing.Description = e.Value as string ?? string.Empty" rows="3" placeholder="Qué se sube en este canal" />
+            </label>
+            <ValidationMessage For="() => editing.Description" />
+            @if (error is not null)
+            {
+                <p class="alert">@error</p>
+            }
+            <div class="modal-actions">
+                <button type="button" class="btn" @onclick="() => form.CloseAsync()">Cancelar</button>
+                <button type="submit" class="btn btn-primary" disabled="@saving">@(saving ? "Guardando..." : "Guardar")</button>
+            </div>
+        </EditForm>
+    }
+</Modal>
+
+<ConfirmDialog @ref="confirm" />
+
+@code {
+    private List<Channel>? All { get; set; }
+
+    private Modal form = default!;
+    private ConfirmDialog confirm = default!;
+    // A copy, so Cancelar doesn't leave half-edited values in the table.
+    private Channel? editing;
+    private string? error;
+    private bool saving, syncing;
+
+    protected override async Task OnInitializedAsync() => All = await Channels.GetAllAsync();
+
+    private void Open(Channel? channel)
+    {
+        editing = channel is null ? new() : new() { Id = channel.Id, Name = channel.Name, Url = channel.Url, Description = channel.Description };
+        error = null;
+        form.Show();
+    }
+
+    private async Task Save()
+    {
+        var channel = editing!;
+        var isNew = channel.Id == 0;
+        saving = true;
+        if (!await Channels.SaveAsync(channel))
+        {
+            saving = false;
+            error = "Ese canal ya está agregado.";
+            return;
+        }
+        // Right away, so its videos show up now (and a wrong link is noticed now) instead of on the next automatic sync.
+        var synced = await Sync.SyncAsync(channel);
+        saving = false;
+
+        await form.CloseAsync();
+        All = await Channels.GetAllAsync();
+        var row = All.First(c => c.Id == channel.Id);
+        var saved = !isNew ? "Cambios guardados" : row.IsMain ? $"{channel.Name} agregado como canal principal" : $"{channel.Name} agregado";
+        await (synced
+            ? Toast($"{saved}: {row.VideoCount} {(row.VideoCount == 1 ? "video" : "videos")}.")
+            : Toast($"{saved}, pero no se pudieron traer sus videos. Revisa el enlace y vuelve a sincronizar.", "error"));
+    }
+
+    private async Task SyncAll()
+    {
+        syncing = true;
+        var failed = await Sync.SyncAllAsync();
+        All = await Channels.GetAllAsync();
+        syncing = false;
+        await (failed.Count == 0
+            ? Toast("Videos al día.")
+            : Toast($"No se pudieron traer los videos de {string.Join(", ", failed)}. Revisa el enlace o inténtalo más tarde.", "error"));
+    }
+
+    private async Task MakeMain(Channel channel)
+    {
+        var done = await Channels.SetMainAsync(channel.Id);
+        All = await Channels.GetAllAsync();
+        await (done ? Toast($"{channel.Name} es ahora el canal principal.") : Toast("Ese canal ya no existe.", "error"));
+    }
+
+    private async Task Delete(Channel channel)
+    {
+        if (channel.IsMain) return;
+        if (!await confirm.AskAsync($"¿Eliminar {channel.Name}?", "Se quitan del sitio el canal y sus videos. En YouTube no se toca nada.", "Eliminar canal")) return;
+        // False when someone made it the main channel meanwhile.
+        var deleted = await Channels.DeleteAsync(channel.Id);
+        All = await Channels.GetAllAsync();
+        await (deleted ? Toast($"{channel.Name} eliminado.") : Toast("No se puede eliminar el canal principal.", "error"));
+    }
+
+    private ValueTask Toast(string message, string kind = "success") => JS.InvokeVoidAsync("adminUi.toast", message, kind);
+}

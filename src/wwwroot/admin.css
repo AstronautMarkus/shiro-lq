@@ -98,6 +98,7 @@ svg { width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: currentColo
 
 .admin-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
 .admin-head .hint { margin-top: 2px; }
+.admin-head-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .crumbs { margin: 0 0 4px; color: var(--muted); font-size: .85rem; }
 .crumbs a { color: var(--muted); }
 
