@@ -58,3 +58,5 @@ nunit-*.xml
 
 # Uploaded mod files (local storage)
 uploads/
+
+.DS_Store
