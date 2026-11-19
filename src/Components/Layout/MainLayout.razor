@@ -1,4 +1,7 @@
 ﻿@inherits LayoutComponentBase
+@inject ChannelStore Channels
+@inject VideoStore Videos
+@inject ILogger<MainLayout> Log
 
 <div class="site">
     <div class="topbar">Loquendo &middot; GTA &middot; Modding</div>
@@ -11,11 +14,18 @@
         <img class="hero-art" src="img/walfa-ichirin.png" alt="" width="105" height="159" />
     </header>
 
-    <NavMenu />
+    <NavMenu YouTubeUrl="@main?.Url" />
 
     <div class="ticker">
         <b>Última hora</b>
-        <p>Videos Loquendo nuevos cada semana &middot; Descarga los últimos mods en la sección Mods</p>
+        @if (latest is not null)
+        {
+            <p>@(latest.PublishedAt > DateTime.UtcNow.AddDays(-7) ? "Nuevo video en el canal" : "Último video"): <a href="@latest.Url" target="_blank" rel="noopener">@latest.Title</a></p>
+        }
+        else
+        {
+            <p>Videos Loquendo nuevos cada semana &middot; Descarga los últimos mods en la sección Mods</p>
+        }
         <span>Bienvenido, visitante</span>
     </div>
 
@@ -33,7 +43,10 @@
                     <p class="display">Bienvenido al canal.</p>
                     <p class="accent">Videos Loquendo, parodias y más.</p>
                     <p>¡Suscríbete para no perderte nada!</p>
-                    <a class="btn btn-block" href="@YouTubeUrl" target="_blank" rel="noopener">&#9654; Suscribirme al canal</a>
+                    @if (main is not null)
+                    {
+                        <a class="btn btn-block" href="@main.Url" target="_blank" rel="noopener">&#9654; Suscribirme al canal</a>
+                    }
                 </div>
             </section>
 
@@ -68,6 +81,21 @@
 </div>
 
 @code {
-    // TODO: replace # with the channel URL (used here and in NavMenu).
-    public const string YouTubeUrl = "#";
+    private Channel? main;
+    // The main channel's newest video, for the ticker.
+    private Video? latest;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            main = await Channels.GetMainAsync();
+            latest = main is null ? null : (await Videos.GetLatestAsync(main.Id, 1)).FirstOrDefault();
+        }
+        catch (Exception e)
+        {
+            // The error page uses this layout too: it still renders, just without the channel links.
+            Log.LogError(e, "Loading the main channel failed");
+        }
+    }
 }

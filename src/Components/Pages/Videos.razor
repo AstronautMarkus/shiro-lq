@@ -1,4 +1,7 @@
 @page "/videos"
+@attribute [StreamRendering]
+@inject ChannelStore Channels
+@inject VideoStore VideoList
 
 <PageTitle>ShiroLQ - Videos</PageTitle>
 
@@ -8,15 +11,69 @@
     <p>Historias, caos y voces que conoces demasiado bien.</p>
 </div>
 
-<div class="grid grid-2">
-    @for (var i = 1; i <= 6; i++)
-    {
-        <article class="card">
-            <div class="video"></div>
-            <div class="card-body">
-                <p class="eyebrow">Loquendo</p>
-                <p class="card-title">Video Loquendo #@i</p>
+@if (videos is null)
+{
+    @* Streamed first: the page shows this while the videos load. *@
+    <div class="grid grid-2" aria-busy="true">
+        <span class="sr-only">Cargando videos...</span>
+        @for (var i = 0; i < 4; i++)
+        {
+            <div class="card" aria-hidden="true">
+                <div class="video skeleton"></div>
+                <div class="card-body">
+                    <span class="skeleton skeleton-line" style="width: 60px"></span>
+                    <span class="skeleton skeleton-line skeleton-title"></span>
+                </div>
             </div>
-        </article>
+        }
+    </div>
+}
+else
+{
+    @if (channels.Count > 1)
+    {
+        <nav class="chips" aria-label="Canales">
+            <a class="btn @(selected is null ? "active" : "")" href="videos" aria-current="@(selected is null ? "page" : null)">Todos</a>
+            @foreach (var channel in channels)
+            {
+                <a class="btn @(channel == selected ? "active" : "")" href="videos?channel=@channel.Id" aria-current="@(channel == selected ? "page" : null)">@channel.Name</a>
+            }
+        </nav>
     }
-</div>
+    @if (selected is not null)
+    {
+        <p class="muted">@selected.Description <a href="@selected.Url" target="_blank" rel="noopener">Ver el canal en YouTube &rsaquo;</a></p>
+    }
+
+    <p class="meta">@videos.Count @(videos.Count == 1 ? "video" : "videos")</p>
+    @* shortcut: every video on one page (thumbnails load lazily); add paging if a channel passes a few hundred videos. *@
+    <div class="grid grid-2">
+        @foreach (var video in videos)
+        {
+            <article class="card">
+                <a class="video" href="@video.Url" target="_blank" rel="noopener"><img src="@video.ThumbnailUrl" alt="" loading="lazy" /></a>
+                <div class="card-body">
+                    <p class="eyebrow">@video.ChannelName</p>
+                    <h2 class="card-title"><a href="@video.Url" target="_blank" rel="noopener">@video.Title</a></h2>
+                    <p class="meta">Subido el @video.Date</p>
+                </div>
+            </article>
+        }
+    </div>
+}
+
+@code {
+    // videos?channel=2 shows one channel; without it, every channel.
+    [SupplyParameterFromQuery(Name = "channel")] private int? ChannelId { get; set; }
+
+    private List<Channel> channels = [];
+    private Channel? selected;
+    private List<Video>? videos;
+
+    protected override async Task OnInitializedAsync()
+    {
+        channels = await Channels.GetAllAsync();
+        selected = channels.FirstOrDefault(c => c.Id == ChannelId);
+        videos = await VideoList.GetLatestAsync(selected?.Id);
+    }
+}

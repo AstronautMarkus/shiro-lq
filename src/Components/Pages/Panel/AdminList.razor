@@ -1,6 +1,6 @@
 @page "/admin/admins"
-@rendermode InteractiveServer
-@attribute [StreamRendering]
+@* No prerender: it would show the content, then the skeleton again while the interactive copy reloads. *@
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @inject AdminStore Admins
 @inject IJSRuntime JS
 
@@ -16,7 +16,6 @@
 
 @if (Accounts is null)
 {
-    @* Streamed while prerendering; once interactive, the list comes from [PersistentState] without loading again. *@
     <div class="panel table-wrap" aria-busy="true">
         <span class="sr-only">Cargando admins...</span>
         <table class="table" aria-hidden="true">
@@ -100,8 +99,7 @@ else
 @code {
     [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = default!;
 
-    // Public for [PersistentState]: what prerendering loaded is reused when the page turns interactive (no hashes: [JsonIgnore]).
-    [PersistentState(AllowUpdates = true)] public List<Admin>? Accounts { get; set; }
+    private List<Admin>? Accounts { get; set; }
 
     private int currentId;
     private Modal form = default!;
@@ -114,7 +112,7 @@ else
     protected override async Task OnInitializedAsync()
     {
         currentId = int.Parse((await AuthState).User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        Accounts ??= await Admins.GetAllAsync();
+        Accounts = await Admins.GetAllAsync();
     }
 
     private void Open(Admin? admin)

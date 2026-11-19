@@ -1,7 +1,7 @@
 @page "/admin/mods/new"
 @page "/admin/mods/{Id:guid}"
-@rendermode InteractiveServer
-@attribute [StreamRendering]
+@* No prerender: it would show the content, then the skeleton again while the interactive copy reloads. *@
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @implements IAsyncDisposable
 @inject ModStore Store
 @inject NavigationManager Nav
@@ -12,7 +12,6 @@
 
 @if (mod is null)
 {
-    @* Streamed while prerendering loads the mod. *@
     <div aria-busy="true">
         <span class="sr-only">Cargando mod...</span>
         <div class="admin-head"><div><span class="skeleton skeleton-line" style="width: 140px"></span><span class="skeleton skeleton-line skeleton-title" style="width: 200px"></span></div></div>
@@ -253,8 +252,6 @@ else
 
     [Parameter] public Guid? Id { get; set; }
     [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = default!;
-    // Public for [PersistentState]: the mod loaded while prerendering is reused when the page turns interactive.
-    [PersistentState] public Mod? Loaded { get; set; }
 
     private bool IsNew => Id is null;
     private Mod? mod;
@@ -296,7 +293,7 @@ else
         }
         else
         {
-            mod = Loaded ??= await Store.GetAsync(Id!.Value);
+            mod = await Store.GetAsync(Id!.Value);
             if (mod is null)
             {
                 Nav.NotFound();
