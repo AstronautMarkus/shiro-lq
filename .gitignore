@@ -60,3 +60,5 @@ nunit-*.xml
 uploads/
 
 .DS_Store
+# dotnet publish output
+publish/

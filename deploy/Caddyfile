@@ -1,0 +1,5 @@
+# Add this block to /etc/caddy/Caddyfile with the real domain. Caddy gets and renews the HTTPS certificate,
+# redirects http to https and proxies Blazor's WebSocket with no extra config.
+shirolq.example.com {
+	reverse_proxy 127.0.0.1:5032
+}

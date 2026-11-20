@@ -1,0 +1,29 @@
+[Unit]
+Description=ShiroLQ (Blazor)
+After=network-online.target mysql.service
+Wants=network-online.target
+
+[Service]
+WorkingDirectory=/var/www/shiro-lq
+ExecStart=/usr/bin/dotnet /var/www/shiro-lq/shiro-lq.dll
+User=www-data
+Group=www-data
+Restart=always
+RestartSec=10
+KillSignal=SIGINT
+SyslogIdentifier=shiro-lq
+
+# Secrets (connection string, storage, first admin). Read as root, so it can stay chmod 600.
+EnvironmentFile=/etc/shiro-lq.env
+Environment=ASPNETCORE_ENVIRONMENT=Production
+# Only Caddy reaches the app; the port is not exposed.
+Environment=ASPNETCORE_URLS=http://127.0.0.1:5032
+# Trust Caddy's X-Forwarded-For/Proto: real visitor IP for the login rate limit, https scheme for cookies and HSTS.
+Environment=ASPNETCORE_FORWARDEDHEADERS_ENABLED=true
+# Data protection keys (login cookies, antiforgery) live in $HOME/.aspnet. www-data can't write its default home,
+# so without this they are lost on every restart and admins get logged out.
+StateDirectory=shiro-lq
+Environment=HOME=/var/lib/shiro-lq
+
+[Install]
+WantedBy=multi-user.target

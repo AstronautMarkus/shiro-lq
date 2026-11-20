@@ -11,6 +11,7 @@ Sitio web del canal ShiroLQ: videos Loquendo, GTA y una sección de descargas de
 
 ```
 shiro-lq/
+  deploy/         Servicio de systemd, bloque de Caddy y plantilla de variables para producción
   src/
     Components/   Páginas y layouts de Blazor (el panel de admin está en Pages/Panel)
     Data/         Acceso a MySQL (ModStore, AdminStore, ChannelStore, VideoStore), sincronización con YouTube (YouTubeSync) y almacenamiento de archivos (S3 o disco)
@@ -102,14 +103,87 @@ dotnet run --project src --launch-profile https
 
 ## Producción
 
-Los user-secrets solo se leen en el entorno `Development`. En producción la cadena de conexión y el almacenamiento se pasan como variables de entorno (el doble guion bajo reemplaza a los dos puntos):
+La app corre en un servidor Linux como servicio de systemd (`shiro-lq`), publicada en `/var/www/shiro-lq` y escuchando solo en `127.0.0.1:5032`. Caddy la expone al público con HTTPS. Los archivos están en `deploy/`:
+
+- `shiro-lq.service`: el servicio. Corre como `www-data`, se reinicia solo si se cae y arranca con el servidor.
+- `shiro-lq.env.example`: plantilla de los secretos. Los user-secrets solo se leen en `Development`; en producción van en `/etc/shiro-lq.env` con las mismas claves, cambiando `:` por `__`.
+- `Caddyfile`: el bloque del sitio para Caddy.
+
+### Primera instalación
+
+Todo se ejecuta en el servidor (Debian o Ubuntu: el servicio usa el usuario `www-data`).
+
+1. Instalar el [SDK de .NET 10](https://learn.microsoft.com/dotnet/core/install/linux), MySQL 8, [Caddy](https://caddyserver.com/docs/install), git y rsync. Revisar dónde quedó `dotnet` con `which dotnet`: si no es `/usr/bin/dotnet`, cambiar la ruta en `ExecStart` de `deploy/shiro-lq.service`.
+
+2. Crear la base de datos y un usuario para la app (`sudo mysql`):
+
+   ```sql
+   CREATE DATABASE shiro_lq;
+   CREATE USER 'shiro'@'localhost' IDENTIFIED BY 'una-contraseña';
+   GRANT ALL PRIVILEGES ON shiro_lq.* TO 'shiro'@'localhost';
+   ```
+
+3. Clonar el repositorio y publicar la app en `/var/www/shiro-lq`:
+
+   ```bash
+   git clone https://github.com/AstronautMarkus/shiro-lq.git ~/shiro-lq
+   cd ~/shiro-lq
+   dotnet publish src -c Release -o publish
+   sudo mkdir -p /var/www/shiro-lq
+   sudo rsync -a --delete --exclude /uploads/ publish/ /var/www/shiro-lq/
+   ```
+
+4. Crear el archivo de secretos y completarlo (cadena de conexión, almacenamiento y primer admin):
+
+   ```bash
+   sudo install -m 600 deploy/shiro-lq.env.example /etc/shiro-lq.env
+   sudo nano /etc/shiro-lq.env
+   ```
+
+5. Solo con almacenamiento Local: crear la carpeta de archivos subidos con permiso de escritura para el servicio.
+
+   ```bash
+   sudo mkdir -p /var/www/shiro-lq/uploads
+   sudo chown www-data:www-data /var/www/shiro-lq/uploads
+   ```
+
+6. Instalar y arrancar el servicio:
+
+   ```bash
+   sudo cp deploy/shiro-lq.service /etc/systemd/system/
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now shiro-lq
+   systemctl status shiro-lq
+   ```
+
+   Si no arranca, el motivo sale en el log (por ejemplo `Missing ConnectionStrings:Default` si falta un secreto): `journalctl -u shiro-lq -n 50`.
+
+7. Configurar Caddy: copiar el bloque de `deploy/Caddyfile` en `/etc/caddy/Caddyfile`, cambiar `shirolq.example.com` por el dominio real y recargar. El dominio tiene que apuntar al servidor y los puertos 80 y 443 tienen que estar abiertos para que Caddy saque el certificado.
+
+   ```bash
+   sudo nano /etc/caddy/Caddyfile
+   sudo systemctl reload caddy
+   ```
+
+8. Entrar a `https://tu-dominio/admin/login` con el primer admin y después borrar las líneas `Admin__*` de `/etc/shiro-lq.env`.
+
+### Actualizar
 
 ```bash
-export ConnectionStrings__Default="Server=...;Database=shiro_lq;User ID=...;Password=..."
-export Storage__Provider="S3"
-export Storage__S3__Bucket="..." Storage__S3__Region="..." Storage__S3__AccessKey="..." Storage__S3__SecretKey="..."
+cd ~/shiro-lq && git pull
 dotnet publish src -c Release -o publish
-cd publish && dotnet shiro-lq.dll
+sudo rsync -a --delete --exclude /uploads/ publish/ /var/www/shiro-lq/
+sudo systemctl restart shiro-lq
+```
+
+El `--exclude /uploads/` protege los archivos subidos con almacenamiento Local: sin él, `--delete` los borraría. Las sesiones de admin sobreviven a los reinicios porque las claves que firman las cookies se guardan en `/var/lib/shiro-lq`.
+
+### Comandos útiles
+
+```bash
+sudo systemctl restart shiro-lq    # reiniciar (también después de cambiar /etc/shiro-lq.env)
+sudo systemctl stop shiro-lq       # detener
+journalctl -u shiro-lq -f          # ver el log en vivo
 ```
 
 ## Panel de administración
@@ -121,7 +195,7 @@ En `/admin` (no hay enlace desde el sitio público). Pide iniciar sesión en `/a
 - **Canales**: los canales de YouTube del sitio, en un modal (nombre, enlace y descripción opcional). El enlace tiene que ser del tipo `https://www.youtube.com/@usuario` o `https://www.youtube.com/channel/UC...`; lo que venga después (`/videos`, `?si=...`) se ignora. Al guardar se traen sus videos al tiro, y "Sincronizar videos" los actualiza todos sin esperar a la sincronización automática. La tabla muestra cuántos videos tiene cada canal en el sitio. Siempre hay un canal principal, el canal oficial: el primero que se agrega lo es, se cambia con "Hacer principal" y no se puede eliminar sin antes hacer principal a otro. Un enlace ya agregado no se repite.
 - **Admins**: crear, editar (en un modal) y eliminar. Al editar, la contraseña vacía deja la actual. Nadie puede borrarse a sí mismo, y un admin borrado pierde el acceso en su siguiente petición.
 
-Las contraseñas se guardan con hash (PBKDF2 de ASP.NET Core). El login acepta 10 peticiones por minuto por IP; detrás de un proxy inverso todas llegan con la IP del proxy y comparten ese límite.
+Las contraseñas se guardan con hash (PBKDF2 de ASP.NET Core). El login acepta 10 peticiones por minuto por IP. Detrás de Caddy cuenta la IP real del visitante porque el servicio activa `ASPNETCORE_FORWARDEDHEADERS_ENABLED`; sin eso todas llegarían con la IP del proxy y compartirían el límite.
 
 ## Videos
 
