@@ -9,16 +9,12 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Roboto+Condensed:wght@400;700&display=swap" />
-    <link rel="stylesheet" href="@Assets[IsAdmin ? "admin.css" : "app.css"]" />
+    <link rel="stylesheet" href="@Assets[IsAdmin ? "css/admin.css" : "css/app.css"]" />
     <link rel="stylesheet" href="@Assets["shiro-lq.styles.css"]" />
     <ImportMap />
-    <link rel="icon" type="image/png" href="favicon.png" />
-    @* In <head> so it's listening before any <img> exists: images keep their skeleton shimmer (CSS: img:not(.loaded))
-       until they load or fail. load/error don't bubble, hence the capture listener on document. *@
-    <script>
-        for (const type of ["load", "error"])
-            document.addEventListener(type, e => e.target instanceof HTMLImageElement && e.target.classList.add("loaded"), true);
-    </script>
+    <link rel="icon" type="image/png" href="img/favicon.png" />
+    @* Blocking (no defer) on purpose: it must listen before any <img> exists. *@
+    <script src="@Assets["js/image-loading.js"]"></script>
     <HeadOutlet />
 </head>
 
@@ -27,7 +23,7 @@
     <ReconnectModal />
     @if (IsAdmin)
     {
-        <script src="@Assets["admin.js"]"></script>
+        <script src="@Assets["js/admin.js"]"></script>
     }
     <script src="@Assets["_framework/blazor.web.js"]"></script>
 </body>

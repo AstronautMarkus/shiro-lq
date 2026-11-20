@@ -15,7 +15,7 @@ shiro-lq/
     Components/   Páginas y layouts de Blazor (el panel de admin está en Pages/Panel)
     Data/         Acceso a MySQL (ModStore, AdminStore, ChannelStore, VideoStore), sincronización con YouTube (YouTubeSync) y almacenamiento de archivos (S3 o disco)
     Models/       Modelos (Mod, ModType, Admin, Channel, Video)
-    wwwroot/      CSS y archivos estáticos (imágenes de decoración en img/)
+    wwwroot/      archivos estáticos: css/, js/ e img/ (imágenes de decoración)
     uploads/      Archivos subidos, solo con almacenamiento Local (no se sube a git)
     Program.cs
     shiro-lq.csproj
@@ -114,7 +114,7 @@ cd publish && dotnet shiro-lq.dll
 
 ## Panel de administración
 
-En `/admin` (no hay enlace desde el sitio público). Pide iniciar sesión en `/admin/login` y tiene su propia hoja de estilos y JavaScript (`wwwroot/admin.css` y `wwwroot/admin.js`). Las acciones se confirman en modales y el resultado se avisa con notificaciones; no usa los `alert`/`confirm` del navegador.
+En `/admin` (no hay enlace desde el sitio público). Pide iniciar sesión en `/admin/login` y tiene su propia hoja de estilos y JavaScript (`wwwroot/css/admin.css` y `wwwroot/js/admin.js`). Las acciones se confirman en modales y el resultado se avisa con notificaciones; no usa los `alert`/`confirm` del navegador.
 
 - **Mods**: crear, editar y eliminar. El editor muestra una vista previa en vivo de cómo se verá el mod en el sitio y de las imágenes elegidas antes de subirlas. Los archivos se pueden arrastrar, y cada cosa elegida se puede quitar o deshacer antes de guardar. Al editar, el archivo y la miniatura son opcionales (si no se eligen, se quedan los actuales) y las fotos se quitan o agregan de a una. Al guardar se ve el progreso de la subida y se puede cancelar: no queda nada guardado a medias. Si sales con cambios sin guardar, pide confirmación. Al eliminar un mod también se borra su carpeta del almacenamiento.
 - **Visibilidad y autor**: cada mod guarda quién lo publicó (`author_id`, la cuenta que lo creó) y si es público o privado. Los privados no salen en el sitio, y su página, descarga e imágenes dan 404 a quien no haya iniciado sesión; con sesión iniciada se ven con un aviso. Si se borra la cuenta del autor, sus mods se quedan, sin autor (`ON DELETE SET NULL`). Cualquier cuenta puede editar cualquier mod: el autor es solo informativo.

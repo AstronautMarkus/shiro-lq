@@ -80,7 +80,7 @@ h1, h2, h3 {
     background:
         linear-gradient(90deg, #080b12 30%, rgba(8, 11, 18, .7) 55%, rgba(8, 11, 18, .2)),
         radial-gradient(ellipse at 78% 35%, rgba(40, 110, 210, .4), transparent 55%),
-        url(img/hero-gta.jpg) right center / cover #0c1626;
+        url(../img/hero-gta.jpg) right center / cover #0c1626;
 }
 
 /* Decorative walfa standing on the right edge of the header */
