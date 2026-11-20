@@ -494,12 +494,11 @@ else
 
     private static string Extension(string fileName) => Path.GetExtension(fileName).TrimStart('.').ToUpperInvariant() is { Length: > 0 } ext ? ext : "?";
 
-    private static string Size(long bytes) => bytes switch
-    {
-        < 1024 * 1024 => $"{bytes / 1024.0:0.#} KB",
-        < 1024L * 1024 * 1024 => $"{bytes / (1024.0 * 1024):0.#} MB",
-        _ => $"{bytes / (1024.0 * 1024 * 1024):0.##} GB",
-    };
+    // Not a relational switch: inside @code, Razor parses a line starting with '<' as markup.
+    private static string Size(long bytes) =>
+        bytes >= 1024L * 1024 * 1024 ? $"{bytes / (1024.0 * 1024 * 1024):0.##} GB"
+        : bytes >= 1024 * 1024 ? $"{bytes / (1024.0 * 1024):0.#} MB"
+        : $"{bytes / 1024.0:0.#} KB";
 
     private ValueTask Toast(string message, string kind = "success") => JS.InvokeVoidAsync("adminUi.toast", message, kind);
 
